@@ -1,0 +1,27 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.ruff_cache/
+
+# Runtime data and secrets
+data/
+.env
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
+traces/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/coverage/
+
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store
