@@ -32,6 +32,13 @@ class Settings(BaseSettings):
     app_url: str = "http://127.0.0.1:8000"
     session_ttl_hours: int = 24 * 7
     cookie_secure: bool = False
+    # Login throttling (M7): failed sign-ins per username and per client address in a window.
+    login_window_minutes: int = 15
+    login_max_failures_per_user: int = 5
+    login_max_failures_per_client: int = 30
+    # Read the client address from X-Forwarded-For. Only behind a proxy that sets it; otherwise a
+    # client could pick its own address and escape the per-client limit.
+    trust_proxy_headers: bool = False
     max_message_chars: int = 32_000
     frontend_dist: Path | None = None
     ollama_probe_ttl_seconds: float = 30.0

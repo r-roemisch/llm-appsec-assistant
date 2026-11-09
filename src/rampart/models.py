@@ -64,6 +64,20 @@ class AuthSession(Base):
     user: Mapped[User] = relationship(back_populates="sessions")
 
 
+class LoginFailure(Base):
+    """One failed sign-in, kept only as long as the throttling window needs it. The username is
+    stored as typed, whether or not such an account exists."""
+
+    __tablename__ = "login_failures"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    username: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    client: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, default=utcnow, index=True
+    )
+
+
 class Conversation(Base):
     __tablename__ = "conversations"
 

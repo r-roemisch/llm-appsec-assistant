@@ -26,6 +26,7 @@ function mockBackend(): FetchMock {
     if (url === "/api/auth/login" && method === "POST") {
       const body = JSON.parse(String(init?.body)) as { username: string; password: string };
       if (body.username === "alice" && body.password === "correct horse") return jsonResponse(200, aliceSession);
+      if (body.username === "throttled") return jsonResponse(429, { detail: "wrong username or password" });
       return jsonResponse(401, { detail: "Invalid username or password" });
     }
     throw new Error(`Unexpected request: ${method} ${url}`);
@@ -81,6 +82,18 @@ describe("LoginPage", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("Invalid username or password");
     expect(screen.queryByText("Signed-in home")).not.toBeInTheDocument();
     expect(session.get()).toBeNull();
+  });
+
+  it("explains a throttled sign-in", async () => {
+    mockBackend();
+    const user = userEvent.setup();
+    renderLogin();
+
+    await user.type(screen.getByLabelText("Username"), "throttled");
+    await user.type(screen.getByLabelText("Password"), "whatever");
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Too many failed sign-ins");
   });
 
   it("shows the health footer", async () => {

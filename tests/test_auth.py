@@ -74,3 +74,89 @@ def test_user_role_is_rejected_on_admin_routes(app):
     assert api.put("/api/admin/models/slots/chat", json={"model_id": "openai/gpt-6-luna"}).status_code == 403
     assert api.put("/api/admin/models/openai%2Fgpt-6-luna", json={"enabled": False}).status_code == 403
     assert api.get("/api/admin/usage").status_code == 403
+
+
+def _login(client, username, password, **kw):
+    return client.post("/api/auth/login", json={"username": username, "password": password}, **kw)
+
+
+def test_a_username_is_throttled_after_five_failures(app):
+    """P6-A25: five failed sign-ins for one username within the window, and the sixth attempt
+    is refused with 429 and Retry-After before the password is checked, even the right one."""
+    make_user(app, "alice")
+    client = TestClient(app)
+    for _ in range(5):
+        assert _login(client, "alice", "wrong-password").status_code == 401
+    refused = _login(client, "alice", PASSWORD)
+    assert refused.status_code == 429
+    assert refused.json()["detail"] == "wrong username or password"  # says nothing more
+    assert 1 <= int(refused.headers["Retry-After"]) <= 15 * 60
+    # Another username from the same client is not affected by alice's limit.
+    make_user(app, "bob")
+    assert _login(client, "bob", PASSWORD).status_code == 200
+
+
+def test_unknown_usernames_are_throttled_the_same_way(app):
+    client = TestClient(app)
+    for _ in range(5):
+        assert _login(client, "nobody", "wrong-password").status_code == 401
+    assert _login(client, "nobody", "wrong-password").status_code == 429
+
+
+def test_refused_attempts_do_not_extend_the_block(app):
+    from datetime import timedelta
+
+    from rampart.db import session_scope, utcnow
+    from rampart.models import LoginFailure
+
+    make_user(app, "alice")
+    client = TestClient(app)
+    for _ in range(5):
+        _login(client, "alice", "wrong-password")
+    for _ in range(3):
+        assert _login(client, "alice", "wrong-password").status_code == 429
+    with session_scope(app.state.session_factory) as db:
+        rows = db.query(LoginFailure).filter_by(username="alice").all()
+        assert len(rows) == 5  # refusals are not counted
+        for row in rows:  # the window passes
+            row.created_at = utcnow() - timedelta(minutes=16)
+    assert _login(client, "alice", PASSWORD).status_code == 200
+
+
+def test_success_and_admin_reset_clear_the_count(app):
+    make_user(app, "alice")
+    carol_id = make_user(app, "carol")
+    make_user(app, "boss", role="admin")
+    client = TestClient(app)
+    for _ in range(4):
+        _login(client, "alice", "wrong-password")
+    assert _login(client, "alice", PASSWORD).status_code == 200
+    for _ in range(4):  # the count started again after the success
+        assert _login(client, "alice", "wrong-password").status_code == 401
+    for _ in range(5):
+        _login(client, "carol", "wrong-password")
+    assert _login(client, "carol", PASSWORD).status_code == 429
+    admin = Api(app, "boss")
+    assert admin.post(f"/api/admin/users/{carol_id}/password", json={"new_password": "reset-pass-1"}).status_code == 204
+    assert _login(client, "carol", "reset-pass-1").status_code == 200
+
+
+def test_a_client_address_is_throttled_across_usernames(app):
+    app.state.settings.login_max_failures_per_client = 6
+    make_user(app, "alice")
+    client = TestClient(app)
+    for index in range(6):
+        assert _login(client, f"guess-{index}", "wrong-password").status_code == 401
+    assert _login(client, "alice", PASSWORD).status_code == 429
+
+
+def test_forwarded_header_is_ignored_unless_trusted(app):
+    app.state.settings.login_max_failures_per_client = 3
+    client = TestClient(app)
+    for index in range(3):
+        headers = {"X-Forwarded-For": f"10.0.0.{index}"}
+        _login(client, f"guess-{index}", "wrong-password", headers=headers)
+    # The header was ignored, so all three failures counted against the one real client.
+    assert _login(client, "someone", "x-password", headers={"X-Forwarded-For": "10.9.9.9"}).status_code == 429
+    app.state.settings.trust_proxy_headers = True
+    assert _login(client, "someone", "x-password", headers={"X-Forwarded-For": "10.9.9.9"}).status_code == 401

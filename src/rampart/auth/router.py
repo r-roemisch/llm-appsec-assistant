@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.orm import Session
 
 from rampart.auth.service import AuthService
+from rampart.auth.throttle import LoginThrottle, ThrottlePolicy
 from rampart.deps import (
     COOKIE_NAME,
     csrf_protect,
@@ -33,6 +34,32 @@ admin_router = APIRouter(
 )
 
 
+WRONG_CREDENTIALS = "wrong username or password"
+
+
+def client_address(request: Request) -> str:
+    """The address the per-client limit counts. X-Forwarded-For is read only when the settings
+    say a proxy sets it."""
+    if request.app.state.settings.trust_proxy_headers:
+        forwarded = request.headers.get("x-forwarded-for", "")
+        first = forwarded.split(",")[0].strip()
+        if first:
+            return first[:64]
+    return (request.client.host if request.client else "unknown")[:64]
+
+
+def _throttle(request: Request, auth: AuthService) -> LoginThrottle:
+    settings = request.app.state.settings
+    return LoginThrottle(
+        auth.db,
+        ThrottlePolicy(
+            window_minutes=settings.login_window_minutes,
+            max_per_user=settings.login_max_failures_per_user,
+            max_per_client=settings.login_max_failures_per_client,
+        ),
+    )
+
+
 def _set_cookie(request: Request, response: Response, token: str) -> None:
     settings = request.app.state.settings
     response.set_cookie(
@@ -50,10 +77,22 @@ def _set_cookie(request: Request, response: Response, token: str) -> None:
 def login(
     body: LoginIn, request: Request, response: Response, auth: AuthService = Depends(get_auth)
 ) -> SessionOut:
+    throttle = _throttle(request, auth)
+    client = client_address(request)
+    wait = throttle.retry_after(body.username, client)
+    if wait is not None:
+        # Refused before the password is checked, and not counted as another failure.
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=WRONG_CREDENTIALS,
+            headers={"Retry-After": str(wait)},
+        )
     user = auth.authenticate(body.username, body.password)
     if user is None:
+        throttle.record_failure(body.username, client)
         auth.db.commit()
-        raise HTTPException(status_code=401, detail="wrong username or password")
+        raise HTTPException(status_code=401, detail=WRONG_CREDENTIALS)
+    throttle.clear_user(user.username)
     token, row = auth.create_session(user)
     auth.db.commit()
     _set_cookie(request, response, token)
@@ -113,9 +152,11 @@ def create_user(body: UserCreateIn, auth: AuthService = Depends(get_auth)) -> Us
 
 @admin_router.post("/{user_id}/password", status_code=status.HTTP_204_NO_CONTENT)
 def reset_password(
-    user_id: int, body: PasswordResetIn, auth: AuthService = Depends(get_auth)
+    user_id: int, body: PasswordResetIn, request: Request, auth: AuthService = Depends(get_auth)
 ) -> Response:
-    auth.set_password(auth.get_user(user_id), body.new_password)
+    user = auth.get_user(user_id)
+    auth.set_password(user, body.new_password)
+    _throttle(request, auth).clear_user(user.username)  # the owner can sign in at once
     auth.db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 

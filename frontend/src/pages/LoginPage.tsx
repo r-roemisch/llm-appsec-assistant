@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useSessionQuery } from "@/hooks/useSession";
-import { errorMessage, login } from "@/lib/api";
+import { ApiError, errorMessage, login } from "@/lib/api";
 import { queryKeys } from "@/lib/query-keys";
 
 export function LoginPage() {
@@ -33,7 +33,12 @@ export function LoginPage() {
       queryClient.setQueryData(queryKeys.session, result);
       navigate(target, { replace: true });
     },
-    onError: (err) => setError(errorMessage(err)),
+    onError: (err) =>
+      setError(
+        err instanceof ApiError && err.status === 429
+          ? "Too many failed sign-ins. Wait a few minutes, then try again."
+          : errorMessage(err),
+      ),
   });
 
   if (session.data) return <Navigate to={target} replace />;
