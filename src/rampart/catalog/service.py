@@ -36,6 +36,10 @@ class SlotConfig:
     temperature: float | None
     max_tokens: int | None
 
+    @property
+    def model_id(self) -> str:
+        return self.model.id
+
 
 class CatalogService:
     def __init__(self, db: Session, catalog: Catalog, probe: ProviderProbe) -> None:

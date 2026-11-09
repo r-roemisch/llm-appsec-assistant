@@ -6,6 +6,7 @@ the OSV.dev cache and Targets (M3; Targets are registered from M4)."""
 from __future__ import annotations
 
 import uuid
+from collections.abc import Iterable
 from datetime import datetime
 from typing import Any
 
@@ -19,6 +20,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    select,
     text,
 )
 from sqlalchemy.orm import Mapped, Session, mapped_column, relationship
@@ -45,6 +47,14 @@ class User(Base):
     conversations: Mapped[list[Conversation]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
+
+    @staticmethod
+    def names(db: Session, ids: Iterable[int | None]) -> dict[int, str]:
+        """Usernames by id for the ids given; None and unknown ids are left out."""
+        wanted = {i for i in ids if i is not None}
+        if not wanted:
+            return {}
+        return {u.id: u.username for u in db.scalars(select(User).where(User.id.in_(wanted)))}
 
 
 class AuthSession(Base):
@@ -327,6 +337,11 @@ class Report(Base):
     title: Mapped[str] = mapped_column(String(300), nullable=False)
     markdown: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utcnow)
+
+    @property
+    def size(self) -> int:
+        """Characters of Markdown, shown in the Reports list."""
+        return len(self.markdown)
 
 
 class AppSetting(Base):

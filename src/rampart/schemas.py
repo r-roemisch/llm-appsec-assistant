@@ -1,45 +1,105 @@
-"""Request and response shapes of the HTTP API (docs/API.md) and converters from domain objects."""
+"""Request and response shapes of the HTTP API (docs/API.md).
+
+A response shape extends ``Out`` and is filled straight from the object that holds the data,
+an ORM row, a dataclass or a service view, with ``XOut.model_validate(obj)``: the attribute
+names match the field names, a stored datetime becomes an ISO string on the way in, and a field
+typed ``Username`` turns a stored user id into the name found in the validation context. The few
+converter functions left at the end of each section combine several objects into one shape.
+"""
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from collections.abc import Callable
+from dataclasses import asdict
+from datetime import datetime
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, field_validator
+from pydantic import (
+    BaseModel,
+    BeforeValidator,
+    ConfigDict,
+    Field,
+    StrictBool,
+    StrictInt,
+    ValidationInfo,
+    field_validator,
+)
 from sqlalchemy.orm import Session
 
-from rampart.admin.settings import AdminSettings
 from rampart.catalog.service import ModelView, SlotConfig
 from rampart.db import to_iso
-from rampart.knowledge.retrieval import PassageRecord
-from rampart.knowledge.service import KnowledgeStatus, SourceView
-from rampart.models import (
-    Approval,
-    Conversation,
-    EvaluationCase,
-    Feedback,
-    GuardEvent,
-    Message,
-    Report,
-    ToolCallRecord,
-    User,
-)
+from rampart.models import Approval, Conversation, Feedback, Message, User
 from rampart.plugins.definitions import changes, exposed_name, warnings_for
 from rampart.plugins.service import PluginView
-from rampart.profile.service import ECOSYSTEMS, ProfileView
-from rampart.targets.service import TargetView
-from rampart.usage.service import UsageTotals
+from rampart.profile.service import ECOSYSTEMS
 
 Role = Literal["user", "admin"]
 
 
-class UserOut(BaseModel):
+class Out(BaseModel):
+    """A response shape; ``model_validate(obj)`` reads any object with the right attributes."""
+
+    model_config = ConfigDict(from_attributes=True, validate_by_name=True)
+
+
+def _iso(value: object) -> object:
+    return to_iso(value) if isinstance(value, datetime) else value
+
+
+def _username(value: object, info: ValidationInfo) -> object:
+    """A stored user id becomes the name in ``context={"usernames": {id: name}}``, or None."""
+    if isinstance(value, int) and not isinstance(value, bool):
+        return (info.context or {}).get("usernames", {}).get(value)
+    return value
+
+
+def _username_or_id(value: object, info: ValidationInfo) -> object:
+    """Like ``_username``; an id without a name (the account is gone) is shown as the id."""
+    if isinstance(value, int) and not isinstance(value, bool):
+        return (info.context or {}).get("usernames", {}).get(value, str(value))
+    return value
+
+
+def _or_empty(value: object) -> object:
+    return {} if value is None else value
+
+
+Timestamp = Annotated[str, BeforeValidator(_iso)]
+OptionalTimestamp = Annotated[str | None, BeforeValidator(_iso)]
+Username = Annotated[str | None, BeforeValidator(_username)]
+Requester = Annotated[str, BeforeValidator(_username_or_id)]
+JsonObject = Annotated[dict[str, Any], BeforeValidator(_or_empty)]
+
+
+def _attributes(obj: object, model: type[BaseModel]) -> dict[str, Any]:
+    """The attributes of ``obj`` that ``model`` has fields for, to merge with values from
+    elsewhere before validating."""
+    return {name: getattr(obj, name) for name in model.model_fields if hasattr(obj, name)}
+
+
+def _stored_entries(model: type[BaseModel]) -> Callable[[Any], list[Any]]:
+    """Reads a JSON list stored on a row; a malformed entry is skipped, never fatal."""
+
+    def convert(stored: Any) -> list[Any]:
+        entries: list[Any] = []
+        for item in stored or []:
+            try:
+                entries.append(model.model_validate(item))
+            except ValueError:
+                continue
+        return entries
+
+    return convert
+
+
+class UserOut(Out):
     id: int
     username: str
     role: str
-    created_at: str
+    created_at: Timestamp
 
 
-class SessionOut(BaseModel):
+class SessionOut(Out):
     user: UserOut
     csrf_token: str
 
@@ -64,7 +124,7 @@ class PasswordResetIn(BaseModel):
     new_password: str = Field(min_length=1, max_length=256)
 
 
-class ModelOut(BaseModel):
+class ModelOut(Out):
     id: str
     provider: str
     display_name: str
@@ -76,14 +136,14 @@ class ModelOut(BaseModel):
     notes: str | None
 
 
-class SlotOut(BaseModel):
+class SlotOut(Out):
     model_id: str
     source: Literal["default", "override"]
     temperature: float | None
     max_tokens: int | None
 
 
-class ModelsOut(BaseModel):
+class ModelsOut(Out):
     models: list[ModelOut]
     slots: dict[str, SlotOut]
 
@@ -101,13 +161,13 @@ class ModelEnabledIn(BaseModel):
     enabled: bool
 
 
-class ConversationOut(BaseModel):
+class ConversationOut(Out):
     id: str
     title: str
     model_id: str
-    created_at: str
-    updated_at: str
-    message_count: int
+    created_at: Timestamp
+    updated_at: Timestamp
+    message_count: int  # the two totals are counted separately, see conversation_out
     total_cost_usd: float
     help_mode: bool = False
 
@@ -124,7 +184,7 @@ class ConversationUpdateIn(BaseModel):
     help_mode: bool | None = None
 
 
-class CitationOut(BaseModel):
+class CitationOut(Out):
     n: int
     passage_id: str
     source_id: str
@@ -136,7 +196,7 @@ class CitationOut(BaseModel):
     provenance: str
 
 
-class ToolCallOut(BaseModel):
+class ToolCallOut(Out):
     id: str
     tool: str
     arguments: dict[str, Any] = Field(default_factory=dict)
@@ -150,26 +210,26 @@ class ToolCallOut(BaseModel):
     approval_id: str | None = None
 
 
-class GuardEventOut(BaseModel):
+class GuardEventOut(Out):
     guard: str  # "input", "provenance" or "output"
     action: str  # "blocked", "flagged" or "redacted"
     category: str
     detail: str = ""
 
 
-class ApprovalOut(BaseModel):
+class ApprovalOut(Out):
     id: str
     conversation_id: str
     message_id: str | None
     tool: str
-    arguments: dict[str, Any]
+    arguments: JsonObject
     approver: Literal["requester", "admin"]
     status: Literal["pending", "approved", "rejected", "expired", "consumed"]
-    requested_by: str
-    created_at: str
-    expires_at: str
-    decided_by: str | None
-    decided_at: str | None
+    requested_by: Requester
+    created_at: Timestamp
+    expires_at: Timestamp
+    decided_by: Username
+    decided_at: OptionalTimestamp
 
 
 class ApprovalDecisionIn(BaseModel):
@@ -177,12 +237,17 @@ class ApprovalDecisionIn(BaseModel):
     decision: Literal["approve", "reject"]
 
 
-class MessageOut(BaseModel):
+_Citations = Annotated[list[CitationOut], BeforeValidator(_stored_entries(CitationOut))]
+_ToolCalls = Annotated[list[ToolCallOut], BeforeValidator(_stored_entries(ToolCallOut))]
+_GuardEvents = Annotated[list[GuardEventOut], BeforeValidator(_stored_entries(GuardEventOut))]
+
+
+class MessageOut(Out):
     id: str
     conversation_id: str
     role: str
     content: str
-    created_at: str
+    created_at: Timestamp
     model_id: str | None
     provider: str | None
     input_tokens: int | None
@@ -192,15 +257,15 @@ class MessageOut(BaseModel):
     trace_id: str | None
     status: str
     error: str | None
-    citations: list[CitationOut] = Field(default_factory=list)
+    citations: _Citations = Field(default_factory=list)
     retrieval_mode: Literal["hybrid", "bm25"] | None = None
-    tool_calls: list[ToolCallOut] = Field(default_factory=list)
-    guard_events: list[GuardEventOut] = Field(default_factory=list)
+    tool_calls: _ToolCalls = Field(default_factory=list)
+    guard_events: _GuardEvents = Field(default_factory=list)
     pending_approval: ApprovalOut | None = None
     feedback: FeedbackOut | None = None  # (M6) the requesting user's own Feedback
 
 
-class ConversationDetailOut(BaseModel):
+class ConversationDetailOut(Out):
     conversation: ConversationOut
     messages: list[MessageOut]
 
@@ -209,24 +274,24 @@ class MessageIn(BaseModel):
     content: str = Field(min_length=1, max_length=32_000)
 
 
-class UsageByModel(BaseModel):
-    model_id: str
+class UsageByModel(Out):
+    model_id: str = Field(validation_alias="key")
     messages: int
     input_tokens: int
     output_tokens: int
     cost_usd: float
 
 
-class UsageByUser(BaseModel):
+class UsageByUser(Out):
     user_id: int
-    username: str
+    username: str = Field(validation_alias="key")
     messages: int
     input_tokens: int
     output_tokens: int
     cost_usd: float
 
 
-class UsageOut(BaseModel):
+class UsageOut(Out):
     messages: int
     input_tokens: int
     output_tokens: int
@@ -238,14 +303,14 @@ class AdminUsageOut(UsageOut):
     by_user: list[UsageByUser]
 
 
-class HealthOut(BaseModel):
+class HealthOut(Out):
     status: Literal["ok"] = "ok"
     version: str
     providers: dict[str, bool]
     tracing: str
 
 
-class SourceOut(BaseModel):
+class SourceOut(Out):
     id: str
     source_type: str
     title: str
@@ -253,13 +318,13 @@ class SourceOut(BaseModel):
     license_note: str | None
     mine: bool
     synthetic: bool
-    fetched_at: str
+    fetched_at: Timestamp
     passage_count: int
     embedded_count: int
     size_bytes: int | None
 
 
-class KnowledgeStatusOut(BaseModel):
+class KnowledgeStatusOut(Out):
     retrieval_mode: Literal["hybrid", "bm25"]
     reason: str | None
     embedding_model_id: str
@@ -273,7 +338,7 @@ class KnowledgeStatusOut(BaseModel):
     upload_types: list[str]
 
 
-class PassageOut(BaseModel):
+class PassageOut(Out):
     id: str
     source_id: str
     source_title: str
@@ -286,7 +351,7 @@ class PassageOut(BaseModel):
     provenance: str
 
 
-class PackageRefModel(BaseModel):
+class PackageRefModel(Out):
     model_config = ConfigDict(extra="forbid")
     ecosystem: str = Field(min_length=1, max_length=32)
     name: str = Field(min_length=1, max_length=214)
@@ -323,14 +388,14 @@ class DependencyImportIn(DependencyFileIn):
     replace: bool = False  # True: the imported packages replace all packages in the profile
 
 
-class ParsedPackageOut(BaseModel):
+class ParsedPackageOut(Out):
     ecosystem: str
     name: str
     version: str | None
     pinned: bool
 
 
-class DependencyFileOut(BaseModel):
+class DependencyFileOut(Out):
     format: str
     packages: list[ParsedPackageOut]
     pinned: int
@@ -338,22 +403,22 @@ class DependencyFileOut(BaseModel):
     skipped: list[str]
 
 
-class ProfileOut(BaseModel):
+class ProfileOut(Out):
     exists: bool
     stack: str
     packages: list[PackageRefModel]
     target_ids: list[str]
-    updated_at: str | None
-    ecosystems: list[str]
+    updated_at: OptionalTimestamp
+    ecosystems: list[str] = Field(default_factory=lambda: list(ECOSYSTEMS))
 
 
-class TargetOut(BaseModel):
+class TargetOut(Out):
     id: str
     name: str
     base_url: str
     input_surface: Literal["user_message", "document_slot"]
     profile: Literal["secure", "vulnerable"] | None
-    registered_at: str
+    registered_at: Timestamp
 
 
 class TargetCreateIn(BaseModel):
@@ -370,108 +435,38 @@ class TargetUpdateIn(BaseModel):
     profile: Literal["secure", "vulnerable"] | None = None
 
 
-class HelpDocOut(BaseModel):
+class HelpDocOut(Out):
     slug: str
     title: str
     audience: Literal["everyone", "admin"]
     markdown: str
 
 
-# --- converters -------------------------------------------------------------------
-
-
-def user_out(user: User) -> UserOut:
-    return UserOut(
-        id=user.id, username=user.username, role=user.role, created_at=to_iso(user.created_at)
-    )
+# --- converters: shapes that combine several objects --------------------------------
 
 
 def model_out(view: ModelView) -> ModelOut:
-    spec = view.spec
-    return ModelOut(
-        id=spec.id,
-        provider=spec.provider,
-        display_name=spec.display_name,
-        kind=spec.kind,
-        tier=spec.tier,
-        enabled=view.enabled,
-        available=view.available,
-        context_length=spec.context_length,
-        notes=spec.notes,
-    )
-
-
-def slot_out(config: SlotConfig) -> SlotOut:
-    return SlotOut(
-        model_id=config.model.id,
-        source=config.source,
-        temperature=config.temperature,
-        max_tokens=config.max_tokens,
+    return ModelOut.model_validate(
+        {**asdict(view.spec), "enabled": view.enabled, "available": view.available}
     )
 
 
 def slots_out(configs: dict[str, SlotConfig]) -> dict[str, SlotOut]:
-    return {slot: slot_out(config) for slot, config in configs.items()}
+    return {slot: SlotOut.model_validate(config) for slot, config in configs.items()}
 
 
 def conversation_out(
     conversation: Conversation, message_count: int, total_cost_usd: float
 ) -> ConversationOut:
-    return ConversationOut(
-        id=conversation.id,
-        title=conversation.title,
-        model_id=conversation.model_id,
-        created_at=to_iso(conversation.created_at),
-        updated_at=to_iso(conversation.updated_at),
-        message_count=message_count,
-        total_cost_usd=total_cost_usd,
-        help_mode=bool(conversation.help_mode),
-    )
-
-
-def citations_out(stored: list[dict[str, Any]] | None) -> list[CitationOut]:
-    out: list[CitationOut] = []
-    for item in stored or []:
-        try:
-            out.append(CitationOut.model_validate(item))
-        except ValueError:
-            continue  # a malformed stored entry is skipped, never fatal
-    return out
-
-
-def _usernames(db: Session | None, *ids: int | None) -> dict[int, str]:
-    wanted = {i for i in ids if i is not None}
-    if db is None or not wanted:
-        return {}
-    return {u.id: u.username for u in db.query(User).filter(User.id.in_(wanted))}
+    totals = {"message_count": message_count, "total_cost_usd": total_cost_usd}
+    return ConversationOut.model_validate({**_attributes(conversation, ConversationOut), **totals})
 
 
 def approval_out(approval: Approval, db: Session | None = None) -> ApprovalOut:
-    names = _usernames(db, approval.requested_by, approval.decided_by)
-    return ApprovalOut(
-        id=approval.id,
-        conversation_id=approval.conversation_id,
-        message_id=approval.message_id,
-        tool=approval.tool,
-        arguments=dict(approval.arguments or {}),
-        approver=approval.approver,  # type: ignore[arg-type]
-        status=approval.status,  # type: ignore[arg-type]
-        requested_by=names.get(approval.requested_by, str(approval.requested_by)),
-        created_at=to_iso(approval.created_at),
-        expires_at=to_iso(approval.expires_at),
-        decided_by=names.get(approval.decided_by) if approval.decided_by is not None else None,
-        decided_at=to_iso(approval.decided_at) if approval.decided_at else None,
-    )
-
-
-def _entries(model: type[BaseModel], stored: list[dict[str, Any]] | None) -> list[Any]:
-    out: list[Any] = []
-    for item in stored or []:
-        try:
-            out.append(model.model_validate(item))
-        except ValueError:
-            continue
-    return out
+    """With a session, the requester and the decider are shown by username."""
+    ids = [approval.requested_by, approval.decided_by]
+    names = User.names(db, ids) if db is not None else {}
+    return ApprovalOut.model_validate(approval, context={"usernames": names})
 
 
 def message_out(
@@ -481,143 +476,16 @@ def message_out(
     db: Session | None = None,
     feedback: Feedback | None = None,
 ) -> MessageOut:
-    return MessageOut(
-        id=message.id,
-        conversation_id=message.conversation_id,
-        role=message.role,
-        content=message.content,
-        created_at=to_iso(message.created_at),
-        model_id=message.model_id,
-        provider=message.provider,
-        input_tokens=message.input_tokens,
-        output_tokens=message.output_tokens,
-        cost_usd=message.cost_usd,
-        latency_ms=message.latency_ms,
-        trace_id=message.trace_id,
-        status=message.status,
-        error=message.error,
-        citations=citations_out(message.citations),
-        retrieval_mode=message.retrieval_mode,  # type: ignore[arg-type]
-        tool_calls=_entries(ToolCallOut, message.tool_calls),
-        guard_events=_entries(GuardEventOut, message.guard_events),
-        pending_approval=approval_out(approval, db) if approval is not None else None,
-        feedback=feedback_out(feedback) if feedback is not None else None,
-    )
-
-
-def usage_out(totals: UsageTotals) -> UsageOut:
-    return UsageOut(
-        messages=totals.messages,
-        input_tokens=totals.input_tokens,
-        output_tokens=totals.output_tokens,
-        cost_usd=totals.cost_usd,
-        by_model=[
-            UsageByModel(
-                model_id=row.key,
-                messages=row.messages,
-                input_tokens=row.input_tokens,
-                output_tokens=row.output_tokens,
-                cost_usd=row.cost_usd,
-            )
-            for row in totals.by_model
-        ],
-    )
-
-
-def admin_usage_out(totals: UsageTotals) -> AdminUsageOut:
-    base = usage_out(totals)
-    return AdminUsageOut(
-        **base.model_dump(),
-        by_user=[
-            UsageByUser(
-                user_id=user_id,
-                username=username,
-                messages=row.messages,
-                input_tokens=row.input_tokens,
-                output_tokens=row.output_tokens,
-                cost_usd=row.cost_usd,
-            )
-            for user_id, username, row in totals.by_user
-        ],
-    )
-
-
-def source_out(view: SourceView) -> SourceOut:
-    return SourceOut(
-        id=view.id,
-        source_type=view.source_type,
-        title=view.title,
-        origin=view.origin,
-        license_note=view.license_note,
-        mine=view.mine,
-        synthetic=view.synthetic,
-        fetched_at=to_iso(view.fetched_at),
-        passage_count=view.passage_count,
-        embedded_count=view.embedded_count,
-        size_bytes=view.size_bytes,
-    )
-
-
-def knowledge_status_out(status: KnowledgeStatus) -> KnowledgeStatusOut:
-    return KnowledgeStatusOut(
-        retrieval_mode=status.retrieval_mode,  # type: ignore[arg-type]
-        reason=status.reason,
-        embedding_model_id=status.embedding_model_id,
-        embedding_available=status.embedding_available,
-        sources=status.sources,
-        passages=status.passages,
-        embedded_passages=status.embedded_passages,
-        uploads=status.uploads,
-        max_uploads=status.max_uploads,
-        max_upload_bytes=status.max_upload_bytes,
-        upload_types=status.upload_types,
-    )
-
-
-def passage_out(record: PassageRecord) -> PassageOut:
-    return PassageOut(
-        id=record.id,
-        source_id=record.source_id,
-        source_title=record.source_title,
-        source_type=record.source_type,
-        origin=record.origin,
-        license_note=record.license_note,
-        ordinal=record.ordinal,
-        heading=record.heading,
-        text=record.text,
-        provenance=record.provenance,
-    )
-
-
-def target_out(view: TargetView) -> TargetOut:
-    return TargetOut(
-        id=view.id,
-        name=view.name,
-        base_url=view.base_url,
-        input_surface=view.input_surface,  # type: ignore[arg-type]
-        profile=view.profile,  # type: ignore[arg-type]
-        registered_at=to_iso(view.registered_at),
-    )
-
-
-def profile_out(view: ProfileView) -> ProfileOut:
-    return ProfileOut(
-        exists=view.exists,
-        stack=view.stack,
-        packages=[
-            PackageRefModel(ecosystem=p.ecosystem, name=p.name, version=p.version)
-            for p in view.packages
-        ],
-        target_ids=view.target_ids,
-        updated_at=to_iso(view.updated_at) if view.updated_at else None,
-        ecosystems=list(ECOSYSTEMS),
-    )
+    out = MessageOut.model_validate(message)
+    out.pending_approval = approval_out(approval, db) if approval is not None else None
+    out.feedback = FeedbackOut.model_validate(feedback) if feedback is not None else None
+    return out
 
 
 # --- M3: Tools, admin controls, audit, Reports -------------------------------------
 
 
-class ToolOut(BaseModel):
+class ToolOut(Out):
     name: str
     description: str
     contributed_by: str
@@ -641,7 +509,7 @@ class ToolPolicyIn(BaseModel):
     rate_limit_per_hour: int | None = Field(default=None, ge=1, le=10_000)
 
 
-class AdminSettingsOut(BaseModel):
+class AdminSettingsOut(Out):
     persona: str
     persona_is_default: bool
     conversation_token_budget: int
@@ -659,10 +527,10 @@ class AdminSettingsIn(BaseModel):
     input_classifier: StrictBool | None = None
 
 
-class ToolCallRecordOut(BaseModel):
+class ToolCallRecordOut(Out):
     id: str
-    created_at: str
-    username: str | None
+    created_at: Timestamp = Field(validation_alias="started_at")
+    username: Username = Field(validation_alias="user_id")
     conversation_id: str | None
     tool: str
     tool_call_id: str
@@ -670,15 +538,15 @@ class ToolCallRecordOut(BaseModel):
     reason_code: str
     message: str
     args_digest: str
-    arguments: dict[str, Any]
+    arguments: JsonObject
     duration_ms: int | None
     error_class: str | None
 
 
-class GuardEventRecordOut(BaseModel):
+class GuardEventRecordOut(Out):
     id: int
-    created_at: str
-    username: str | None
+    created_at: Timestamp
+    username: Username = Field(validation_alias="user_id")
     conversation_id: str | None
     guard: str
     action: str
@@ -686,11 +554,11 @@ class GuardEventRecordOut(BaseModel):
     detail: str
 
 
-class ReportOut(BaseModel):
+class ReportOut(Out):
     id: str
     conversation_id: str | None
     title: str
-    created_at: str
+    created_at: Timestamp
     size: int
 
 
@@ -698,83 +566,12 @@ class ReportDetailOut(ReportOut):
     markdown: str
 
 
-def tool_out(manifest: Any) -> ToolOut:
-    return ToolOut(
-        name=manifest.name,
-        description=manifest.description,
-        contributed_by=manifest.contributed_by,
-        enabled=manifest.enabled,
-        requires_approval=manifest.requires_approval,
-        approver=manifest.approver,
-        rate_limit_per_hour=manifest.rate_limit_per_hour,
-        cost_class=manifest.cost_class,
-        allowed_roles=list(manifest.allowed_roles),
-        json_schema=manifest.json_schema,
-        blocked=manifest.blocked,
-    )
-
-
-def admin_settings_out(settings: AdminSettings) -> AdminSettingsOut:
-    return AdminSettingsOut(
-        persona=settings.persona,
-        persona_is_default=settings.persona_is_default,
-        conversation_token_budget=settings.conversation_token_budget,
-        input_guard=settings.input_guard,
-        input_classifier=settings.input_classifier,
-    )
-
-
-def tool_call_record_out(record: ToolCallRecord, usernames: dict[int, str]) -> ToolCallRecordOut:
-    return ToolCallRecordOut(
-        id=record.id,
-        created_at=to_iso(record.started_at),
-        username=usernames.get(record.user_id) if record.user_id is not None else None,
-        conversation_id=record.conversation_id,
-        tool=record.tool,
-        tool_call_id=record.tool_call_id,
-        decision=record.decision,
-        reason_code=record.reason_code,
-        message=record.message,
-        args_digest=record.args_digest,
-        arguments=dict(record.arguments or {}),
-        duration_ms=record.duration_ms,
-        error_class=record.error_class,
-    )
-
-
-def guard_event_record_out(event: GuardEvent, usernames: dict[int, str]) -> GuardEventRecordOut:
-    return GuardEventRecordOut(
-        id=event.id,
-        created_at=to_iso(event.created_at),
-        username=usernames.get(event.user_id) if event.user_id is not None else None,
-        conversation_id=event.conversation_id,
-        guard=event.guard,
-        action=event.action,
-        category=event.category,
-        detail=event.detail,
-    )
-
-
-def report_out(report: Report) -> ReportOut:
-    return ReportOut(
-        id=report.id,
-        conversation_id=report.conversation_id,
-        title=report.title,
-        created_at=to_iso(report.created_at),
-        size=len(report.markdown),
-    )
-
-
-def report_detail_out(report: Report) -> ReportDetailOut:
-    return ReportDetailOut(**report_out(report).model_dump(), markdown=report.markdown)
-
-
 # ---- (M5) Plugins -------------------------------------------------------------------------------
 
 PluginStatus = Literal["new", "pending_review", "ok", "drifted", "error", "missing", "invalid"]
 
 
-class PluginToolOut(BaseModel):
+class PluginToolOut(Out):
     name: str  # the server's name for the Tool
     exposed_name: str | None  # what the Model and the Gateway call it; null when unusable
     title: str | None
@@ -785,18 +582,18 @@ class PluginToolOut(BaseModel):
     warnings: list[str]
 
 
-class PluginChangeOut(BaseModel):
+class PluginChangeOut(Out):
     name: str
     fields: list[str]
 
 
-class PluginChangesOut(BaseModel):
+class PluginChangesOut(Out):
     added: list[str]
     removed: list[str]
     changed: list[PluginChangeOut]
 
 
-class PluginOut(BaseModel):
+class PluginOut(Out):
     id: str
     title: str
     description: str
@@ -808,9 +605,9 @@ class PluginOut(BaseModel):
     accepted_tools_digest: str | None
     current_tools_digest: str | None
     tool_count: int  # Tools in the last listing
-    last_seen: str | None
+    last_seen: OptionalTimestamp
     last_error: str | None
-    accepted_at: str | None
+    accepted_at: OptionalTimestamp
     accepted_by: str | None
 
 
@@ -820,7 +617,7 @@ class PluginDetailOut(PluginOut):
     changes: PluginChangesOut  # accepted versus current
 
 
-class PluginCatalogOut(BaseModel):
+class PluginCatalogOut(Out):
     catalog_error: str | None  # the catalog file itself could not be read
     plugins: list[PluginOut]
 
@@ -842,6 +639,7 @@ class PluginAcceptIn(BaseModel):
 
 
 def plugin_out(view: PluginView, usernames: dict[int, str]) -> PluginOut:
+    """A catalog entry, a stored row, or both, as one shape."""
     entry, row = view.entry, view.row
     return PluginOut(
         id=view.id,
@@ -918,17 +716,17 @@ class FeedbackIn(BaseModel):
         return value
 
 
-class FeedbackOut(BaseModel):
+class FeedbackOut(Out):
     value: int
     comment: str | None
-    created_at: str
-    updated_at: str
+    created_at: Timestamp
+    updated_at: Timestamp
 
 
-class FeedbackRecordOut(BaseModel):
+class FeedbackRecordOut(Out):
     id: str
-    created_at: str
-    updated_at: str
+    created_at: Timestamp
+    updated_at: Timestamp
     username: str | None
     value: int
     comment: str | None
@@ -940,11 +738,11 @@ class FeedbackRecordOut(BaseModel):
     tools_used: list[str]
     trace_id: str | None
     forwarded_to: str | None  # "langfuse", "jsonl" or null (not forwarded)
-    forwarded_at: str | None
+    forwarded_at: OptionalTimestamp
     evaluation_case_id: str | None
 
 
-class FeedbackDashboardOut(BaseModel):
+class FeedbackDashboardOut(Out):
     up: int
     down: int
     converted: int
@@ -960,27 +758,19 @@ class EvaluationCaseIn(BaseModel):
     expected_tools: list[str] | None = Field(default=None, max_length=10)
 
 
-class EvaluationCaseOut(BaseModel):
+class EvaluationCaseOut(Out):
     id: str
     kind: str
     question: str
     expected_answer: str | None
     expected_tools: list[str] | None
     source: str  # "feedback:<feedback id>"
-    created_by: str | None
-    created_at: str
-
-
-def feedback_out(row: Feedback) -> FeedbackOut:
-    return FeedbackOut(
-        value=row.value,
-        comment=row.comment,
-        created_at=to_iso(row.created_at),
-        updated_at=to_iso(row.updated_at),
-    )
+    created_by: Username
+    created_at: Timestamp
 
 
 def feedback_record_out(record: Any) -> FeedbackRecordOut:
+    """A Feedback row with the answer it rates, the question before it and the rater's name."""
     row, answer = record.feedback, record.answer
     return FeedbackRecordOut(
         id=row.id,
@@ -1002,19 +792,6 @@ def feedback_record_out(record: Any) -> FeedbackRecordOut:
     )
 
 
-def evaluation_case_out(case: EvaluationCase, usernames: dict[int, str]) -> EvaluationCaseOut:
-    return EvaluationCaseOut(
-        id=case.id,
-        kind=case.kind,
-        question=case.question,
-        expected_answer=case.expected_answer,
-        expected_tools=case.expected_tools,
-        source=case.source,
-        created_by=usernames.get(case.created_by) if case.created_by else None,
-        created_at=to_iso(case.created_at),
-    )
-
-
 # ---- (M6) Evaluation -----------------------------------------------------------------------------
 
 EvalSuite = Literal["qa", "tool", "guard", "all"]
@@ -1027,7 +804,7 @@ class EvalEstimateIn(BaseModel):
     limit: int | None = Field(default=None, ge=1, le=500)
 
 
-class SuiteEstimateOut(BaseModel):
+class SuiteEstimateOut(Out):
     suite: str
     cases: int
     chat_model: str | None
@@ -1040,7 +817,7 @@ class SuiteEstimateOut(BaseModel):
     notes: list[str]
 
 
-class EvalEstimateOut(BaseModel):
+class EvalEstimateOut(Out):
     estimates: list[SuiteEstimateOut]
     total_usd: float | None  # null when a price is unknown
 
@@ -1056,7 +833,7 @@ class EvalRunIn(BaseModel):
     confirm_cost_usd: float | None
 
 
-class EvalRunOut(BaseModel):
+class EvalRunOut(Out):
     id: str
     kind: str  # deepeval_qa | deepeval_tool | guard
     suite: str  # qa | tool | guard
@@ -1070,15 +847,15 @@ class EvalRunOut(BaseModel):
     error: str | None
     report_name: str | None
     started_by: str | None
-    created_at: str
-    finished_at: str | None
+    created_at: Timestamp
+    finished_at: OptionalTimestamp
 
 
 class EvalRunDetailOut(EvalRunOut):
     report_markdown: str | None
 
 
-class EvalDatasetsOut(BaseModel):
+class EvalDatasetsOut(Out):
     qa: dict[str, int]
     tool: dict[str, int]
     guard: dict[str, int]

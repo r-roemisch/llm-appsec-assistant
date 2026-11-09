@@ -6,7 +6,6 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path, Query, Request, Response, status
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from rampart.deps import csrf_protect, current_user, get_db, require_admin
@@ -18,8 +17,6 @@ from rampart.schemas import (
     FeedbackDashboardOut,
     FeedbackIn,
     FeedbackOut,
-    evaluation_case_out,
-    feedback_out,
     feedback_record_out,
 )
 from rampart.tools.registry import ToolRegistry
@@ -52,7 +49,7 @@ def set_feedback(
 ) -> FeedbackOut:
     row = _service(request, db).set(user, message_id, body.value, body.comment)
     db.commit()
-    return feedback_out(row)
+    return FeedbackOut.model_validate(row)
 
 
 @router.delete("/{message_id}/feedback", status_code=status.HTTP_204_NO_CONTENT)
@@ -108,17 +105,15 @@ def convert_feedback(
         known_tools={m.name for m in registry.effective_all(db)},
     )
     db.commit()
-    return evaluation_case_out(case, {admin.id: admin.username})
+    names = {"usernames": {admin.id: admin.username}}
+    return EvaluationCaseOut.model_validate(case, context=names)
 
 
 @admin_router.get("/evaluation-cases", response_model=list[EvaluationCaseOut])
 def list_cases(request: Request, db: Session = Depends(get_db)) -> list[EvaluationCaseOut]:
     cases = _service(request, db).cases()
-    ids = {c.created_by for c in cases if c.created_by}
-    names = (
-        {u.id: u.username for u in db.scalars(select(User).where(User.id.in_(ids)))} if ids else {}
-    )
-    return [evaluation_case_out(c, names) for c in cases]
+    names = {"usernames": User.names(db, [c.created_by for c in cases])}
+    return [EvaluationCaseOut.model_validate(c, context=names) for c in cases]
 
 
 @admin_router.delete("/evaluation-cases/{case_id}", status_code=status.HTTP_204_NO_CONTENT)

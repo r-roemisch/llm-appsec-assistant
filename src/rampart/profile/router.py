@@ -21,7 +21,6 @@ from rampart.schemas import (
     ParsedPackageOut,
     ProfileIn,
     ProfileOut,
-    profile_out,
 )
 
 router = APIRouter(
@@ -33,7 +32,7 @@ router = APIRouter(
 
 @router.get("", response_model=ProfileOut)
 def get_profile(user: User = Depends(current_user), db: Session = Depends(get_db)) -> ProfileOut:
-    return profile_out(ProfileService(db).get(user.id))
+    return ProfileOut.model_validate(ProfileService(db).get(user.id))
 
 
 @router.put("", response_model=ProfileOut)
@@ -43,7 +42,7 @@ def save_profile(
     packages = [PackageRef(p.ecosystem, p.name, p.version) for p in body.packages]
     view = ProfileService(db).save(user.id, body.stack, packages, body.target_ids)
     db.commit()
-    return profile_out(view)
+    return ProfileOut.model_validate(view)
 
 
 @router.delete("", status_code=status.HTTP_204_NO_CONTENT)
@@ -67,10 +66,7 @@ def preview_dependency_file(body: DependencyFileIn) -> DependencyFileOut:
     pinned = sum(1 for p in result.packages if p.pinned)
     return DependencyFileOut(
         format=result.format,
-        packages=[
-            ParsedPackageOut(ecosystem=p.ecosystem, name=p.name, version=p.version, pinned=p.pinned)
-            for p in result.packages
-        ],
+        packages=[ParsedPackageOut.model_validate(p) for p in result.packages],
         pinned=pinned,
         unpinned=len(result.packages) - pinned,
         skipped=result.skipped,
@@ -88,4 +84,4 @@ def import_dependency_file(
     packages = [PackageRef(p.ecosystem, p.name, p.version) for p in result.packages]
     view = ProfileService(db).import_packages(user.id, packages, replace=body.replace)
     db.commit()
-    return profile_out(view)
+    return ProfileOut.model_validate(view)

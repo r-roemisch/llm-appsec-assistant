@@ -24,7 +24,6 @@ from rampart.schemas import (
     SessionOut,
     UserCreateIn,
     UserOut,
-    user_out,
 )
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -97,7 +96,7 @@ def login(
     token, row = auth.create_session(user)
     auth.db.commit()
     _set_cookie(request, response, token)
-    return SessionOut(user=user_out(user), csrf_token=row.csrf_token)
+    return SessionOut(user=UserOut.model_validate(user), csrf_token=row.csrf_token)
 
 
 @router.post(
@@ -114,7 +113,7 @@ def logout(request: Request, response: Response, auth: AuthService = Depends(get
 @router.get("/me", response_model=SessionOut)
 def me(pair: tuple[User, AuthSession] = Depends(current_session)) -> SessionOut:
     user, row = pair
-    return SessionOut(user=user_out(user), csrf_token=row.csrf_token)
+    return SessionOut(user=UserOut.model_validate(user), csrf_token=row.csrf_token)
 
 
 @router.post(
@@ -141,14 +140,14 @@ def change_password(
 
 @admin_router.get("", response_model=list[UserOut])
 def list_users(auth: AuthService = Depends(get_auth)) -> list[UserOut]:
-    return [user_out(u) for u in auth.list_users()]
+    return [UserOut.model_validate(u) for u in auth.list_users()]
 
 
 @admin_router.post("", response_model=UserOut, status_code=status.HTTP_201_CREATED)
 def create_user(body: UserCreateIn, auth: AuthService = Depends(get_auth)) -> UserOut:
     user = auth.create_user(body.username, body.password, body.role)
     auth.db.commit()
-    return user_out(user)
+    return UserOut.model_validate(user)
 
 
 @admin_router.post("/{user_id}/password", status_code=status.HTTP_204_NO_CONTENT)

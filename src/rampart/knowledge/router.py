@@ -13,15 +13,7 @@ from rampart.errors import Invalid
 from rampart.knowledge.service import KnowledgeService
 from rampart.knowledge.sources import APP_DOCS
 from rampart.models import User
-from rampart.schemas import (
-    HelpDocOut,
-    KnowledgeStatusOut,
-    PassageOut,
-    SourceOut,
-    knowledge_status_out,
-    passage_out,
-    source_out,
-)
+from rampart.schemas import HelpDocOut, KnowledgeStatusOut, PassageOut, SourceOut
 
 MULTIPART_OVERHEAD = 64 * 1024
 
@@ -43,7 +35,7 @@ def knowledge_status(
     knowledge: KnowledgeService = Depends(get_knowledge),
     db: Session = Depends(get_db),
 ) -> KnowledgeStatusOut:
-    return knowledge_status_out(knowledge.status(db, user.id))
+    return KnowledgeStatusOut.model_validate(knowledge.status(db, user.id))
 
 
 @router.get("/sources", response_model=list[SourceOut])
@@ -52,7 +44,7 @@ def list_sources(
     knowledge: KnowledgeService = Depends(get_knowledge),
     db: Session = Depends(get_db),
 ) -> list[SourceOut]:
-    return [source_out(view) for view in knowledge.list_sources(db, user.id)]
+    return [SourceOut.model_validate(view) for view in knowledge.list_sources(db, user.id)]
 
 
 @router.post(
@@ -98,7 +90,7 @@ async def upload(
         view = await knowledge.upload(user.id, item.filename or "upload", data)
     finally:
         await form.close()
-    return source_out(view)
+    return SourceOut.model_validate(view)
 
 
 @router.delete("/sources/{source_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -118,7 +110,7 @@ def get_passage(
     knowledge: KnowledgeService = Depends(get_knowledge),
     db: Session = Depends(get_db),
 ) -> PassageOut:
-    return passage_out(knowledge.get_passage(db, user.id, passage_id))
+    return PassageOut.model_validate(knowledge.get_passage(db, user.id, passage_id))
 
 
 _H1 = re.compile(r"^#\s+(.+?)\s*$", re.MULTILINE)

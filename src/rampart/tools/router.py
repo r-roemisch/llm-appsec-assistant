@@ -9,14 +9,7 @@ from sqlalchemy.orm import Session
 
 from rampart.deps import csrf_protect, current_user, get_db
 from rampart.models import User
-from rampart.schemas import (
-    ReportDetailOut,
-    ReportOut,
-    ToolOut,
-    report_detail_out,
-    report_out,
-    tool_out,
-)
+from rampart.schemas import ReportDetailOut, ReportOut, ToolOut
 from rampart.tools.registry import ToolRegistry
 from rampart.tools.reports import ReportService
 
@@ -37,21 +30,21 @@ def list_tools(
     registry: ToolRegistry = Depends(get_registry),
     db: Session = Depends(get_db),
 ) -> list[ToolOut]:
-    return [tool_out(m) for m in registry.available_to(db, user.role)]
+    return [ToolOut.model_validate(m) for m in registry.available_to(db, user.role)]
 
 
 @router.get("/reports", response_model=list[ReportOut])
 def list_reports(
     user: User = Depends(current_user), db: Session = Depends(get_db)
 ) -> list[ReportOut]:
-    return [report_out(r) for r in ReportService(db).list(user.id)]
+    return [ReportOut.model_validate(r) for r in ReportService(db).list(user.id)]
 
 
 @router.get("/reports/{report_id}", response_model=ReportDetailOut)
 def get_report(
     report_id: str, user: User = Depends(current_user), db: Session = Depends(get_db)
 ) -> ReportDetailOut:
-    return report_detail_out(ReportService(db).get(user.id, report_id))
+    return ReportDetailOut.model_validate(ReportService(db).get(user.id, report_id))
 
 
 @router.get("/reports/{report_id}/download")

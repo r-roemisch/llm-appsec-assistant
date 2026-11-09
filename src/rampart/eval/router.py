@@ -7,7 +7,6 @@ from pathlib import Path as FilePath
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path, Request, status
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from rampart.config import REPO_ROOT
@@ -79,10 +78,7 @@ def _run_out(row: EvalRun, names: dict[int, str]) -> EvalRunOut:
 
 
 def _names(db: Session, rows: list[EvalRun]) -> dict[int, str]:
-    ids = {r.started_by for r in rows if r.started_by}
-    if not ids:
-        return {}
-    return {u.id: u.username for u in db.scalars(select(User).where(User.id.in_(ids)))}
+    return User.names(db, [r.started_by for r in rows])
 
 
 @router.get("/datasets", response_model=EvalDatasetsOut)

@@ -10,7 +10,6 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path, Request
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from rampart.db import session_scope
@@ -40,10 +39,7 @@ def get_plugins(request: Request) -> PluginService:
 
 
 def _usernames(db: Session, views: list[PluginView]) -> dict[int, str]:
-    ids = {v.row.accepted_by for v in views if v.row is not None and v.row.accepted_by}
-    if not ids:
-        return {}
-    return {u.id: u.username for u in db.scalars(select(User).where(User.id.in_(ids)))}
+    return User.names(db, [v.row.accepted_by for v in views if v.row is not None])
 
 
 def _detail(service: PluginService, plugin_id: str) -> PluginDetailOut:

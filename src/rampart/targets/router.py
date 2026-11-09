@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from rampart.deps import csrf_protect, current_user, get_db
 from rampart.models import User
-from rampart.schemas import TargetCreateIn, TargetOut, TargetUpdateIn, target_out
+from rampart.schemas import TargetCreateIn, TargetOut, TargetUpdateIn
 from rampart.targets.service import TargetService
 
 router = APIRouter(
@@ -21,14 +21,14 @@ router = APIRouter(
 def list_targets(
     user: User = Depends(current_user), db: Session = Depends(get_db)
 ) -> list[TargetOut]:
-    return [target_out(view) for view in TargetService(db).list(user.id)]
+    return [TargetOut.model_validate(t) for t in TargetService(db).list(user.id)]
 
 
 @router.post("", response_model=TargetOut, status_code=status.HTTP_201_CREATED)
 def register_target(
     body: TargetCreateIn, user: User = Depends(current_user), db: Session = Depends(get_db)
 ) -> TargetOut:
-    view = TargetService(db).register(
+    target = TargetService(db).register(
         user.id,
         name=body.name,
         base_url=body.base_url,
@@ -36,7 +36,7 @@ def register_target(
         profile=body.profile,
     )
     db.commit()
-    return target_out(view)
+    return TargetOut.model_validate(target)
 
 
 @router.patch("/{target_id}", response_model=TargetOut)
@@ -47,11 +47,11 @@ def update_target(
     db: Session = Depends(get_db),
 ) -> TargetOut:
     clear = "profile" in body.model_fields_set and body.profile is None
-    view = TargetService(db).update(
+    target = TargetService(db).update(
         user.id, target_id, name=body.name, profile=body.profile, clear_profile=clear
     )
     db.commit()
-    return target_out(view)
+    return TargetOut.model_validate(target)
 
 
 @router.delete("/{target_id}", status_code=status.HTTP_204_NO_CONTENT)

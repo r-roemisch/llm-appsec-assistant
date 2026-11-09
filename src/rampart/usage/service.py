@@ -7,7 +7,7 @@ helped a turn are counted under their own ids.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -25,13 +25,20 @@ class UsageRow:
 
 
 @dataclass(frozen=True)
+class UserUsageRow(UsageRow):
+    """One user's totals; ``key`` is the username."""
+
+    user_id: int
+
+
+@dataclass(frozen=True)
 class UsageTotals:
     messages: int = 0
     input_tokens: int = 0
     output_tokens: int = 0
     cost_usd: float = 0.0
     by_model: list[UsageRow] = field(default_factory=list)
-    by_user: list[tuple[int, str, UsageRow]] = field(default_factory=list)
+    by_user: list[UserUsageRow] = field(default_factory=list)
 
 
 def _row(key: str, count: object, inp: object, out: object, cost: object) -> UsageRow:
@@ -91,7 +98,7 @@ class UsageService:
         ]
         by_model.sort(key=lambda row: (-row.cost_usd, row.key))
 
-        by_user: list[tuple[int, str, UsageRow]] = []
+        by_user: list[UserUsageRow] = []
         if user_id is None:
             by_user_query = (
                 base.add_columns(User.id, User.username)
@@ -99,8 +106,9 @@ class UsageService:
                 .group_by(User.id, User.username)
             )
             for count, inp, out, cost, uid, username in self.db.execute(by_user_query):
-                by_user.append((uid, username, _row(username, count, inp, out, cost)))
-            by_user.sort(key=lambda item: (-item[2].cost_usd, item[1]))
+                row = _row(username, count, inp, out, cost)
+                by_user.append(UserUsageRow(**asdict(row), user_id=uid))
+            by_user.sort(key=lambda row: (-row.cost_usd, row.key))
 
         return UsageTotals(
             messages=overall.messages,

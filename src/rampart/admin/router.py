@@ -22,11 +22,7 @@ from rampart.schemas import (
     ToolCallRecordOut,
     ToolOut,
     ToolPolicyIn,
-    admin_settings_out,
     approval_out,
-    guard_event_record_out,
-    tool_call_record_out,
-    tool_out,
 )
 from rampart.tools.registry import ToolRegistry
 from rampart.unset import UNSET
@@ -42,18 +38,11 @@ def get_registry(request: Request) -> ToolRegistry:
     return request.app.state.registry
 
 
-def _usernames(db: Session, ids: set[int | None]) -> dict[int, str]:
-    wanted = {i for i in ids if i is not None}
-    if not wanted:
-        return {}
-    return {u.id: u.username for u in db.scalars(select(User).where(User.id.in_(wanted)))}
-
-
 @router.get("/tools", response_model=list[ToolOut])
 def list_tools(
     registry: ToolRegistry = Depends(get_registry), db: Session = Depends(get_db)
 ) -> list[ToolOut]:
-    return [tool_out(m) for m in registry.effective_all(db)]
+    return [ToolOut.model_validate(m) for m in registry.effective_all(db)]
 
 
 @router.put("/tools/{name}", response_model=ToolOut)
@@ -83,7 +72,7 @@ def update_tool(
     manifest = registry.effective(db, name)
     db.commit()
     assert manifest is not None
-    return tool_out(manifest)
+    return ToolOut.model_validate(manifest)
 
 
 @router.get("/approvals", response_model=list[ApprovalOut])
@@ -121,8 +110,8 @@ def audit_tool_calls(
     if decision:
         query = query.where(ToolCallRecord.decision == decision)
     records = list(db.scalars(query))
-    names = _usernames(db, {r.user_id for r in records})
-    return [tool_call_record_out(r, names) for r in records]
+    names = {"usernames": User.names(db, [r.user_id for r in records])}
+    return [ToolCallRecordOut.model_validate(r, context=names) for r in records]
 
 
 @router.get("/audit/guard-events", response_model=list[GuardEventRecordOut])
@@ -135,13 +124,14 @@ def audit_guard_events(
     if guard:
         query = query.where(GuardEvent.guard == guard)
     events = list(db.scalars(query))
-    names = _usernames(db, {e.user_id for e in events})
-    return [guard_event_record_out(e, names) for e in events]
+    names = {"usernames": User.names(db, [e.user_id for e in events])}
+    return [GuardEventRecordOut.model_validate(e, context=names) for e in events]
 
 
 @router.get("/settings", response_model=AdminSettingsOut)
 def get_settings(request: Request, db: Session = Depends(get_db)) -> AdminSettingsOut:
-    return admin_settings_out(AdminSettingsService(db, request.app.state.settings).get())
+    service = AdminSettingsService(db, request.app.state.settings)
+    return AdminSettingsOut.model_validate(service.get())
 
 
 @router.put("/settings", response_model=AdminSettingsOut)
@@ -162,4 +152,4 @@ def update_settings(
         input_classifier=body.input_classifier if "input_classifier" in provided else UNSET,
     )
     db.commit()
-    return admin_settings_out(settings)
+    return AdminSettingsOut.model_validate(settings)

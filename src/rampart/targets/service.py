@@ -9,9 +9,6 @@ authority and registration an admission step.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime
-
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -27,41 +24,20 @@ MAX_NAME_CHARS = 100
 MAX_URL_CHARS = 300
 
 
-@dataclass(frozen=True)
-class TargetView:
-    id: str
-    name: str
-    base_url: str
-    input_surface: str
-    profile: str | None
-    registered_at: datetime
-
-
-def _view(target: Target) -> TargetView:
-    return TargetView(
-        id=target.id,
-        name=target.name,
-        base_url=target.base_url,
-        input_surface=target.input_surface,
-        profile=target.profile,
-        registered_at=target.registered_at,
-    )
-
-
 class TargetService:
     def __init__(self, db: Session) -> None:
         self.db = db
 
-    def list(self, user_id: int) -> list[TargetView]:
+    def list(self, user_id: int) -> list[Target]:
         rows = self.db.scalars(
             select(Target)
             .where(Target.owner_user_id == user_id)
             .order_by(Target.registered_at.desc())
         )
-        return [_view(t) for t in rows]
+        return list(rows)
 
-    def get(self, user_id: int, target_id: str) -> TargetView:
-        return _view(self._owned(user_id, target_id))
+    def get(self, user_id: int, target_id: str) -> Target:
+        return self._owned(user_id, target_id)
 
     def _owned(self, user_id: int, target_id: str) -> Target:
         target = self.db.get(Target, target_id)
@@ -77,7 +53,7 @@ class TargetService:
         base_url: str,
         input_surface: str = "user_message",
         profile: str | None = None,
-    ) -> TargetView:
+    ) -> Target:
         clean_name = " ".join(name.split())[:MAX_NAME_CHARS]
         if not clean_name:
             raise Invalid("a target needs a name")
@@ -112,7 +88,7 @@ class TargetService:
         )
         self.db.add(target)
         self.db.flush()
-        return _view(target)
+        return target
 
     def update(
         self,
@@ -122,7 +98,7 @@ class TargetService:
         name: str | None = None,
         profile: str | None = None,
         clear_profile: bool = False,
-    ) -> TargetView:
+    ) -> Target:
         target = self._owned(user_id, target_id)
         if name is not None:
             clean = " ".join(name.split())[:MAX_NAME_CHARS]
@@ -136,7 +112,7 @@ class TargetService:
                 raise Invalid(f"profile must be one of {', '.join(PROFILES)}")
             target.profile = profile
         self.db.flush()
-        return _view(target)
+        return target
 
     def delete(self, user_id: int, target_id: str) -> None:
         self.db.delete(self._owned(user_id, target_id))
