@@ -10,7 +10,7 @@ passes a deterministic gateway, untrusted content is labelled, approvals are bou
 arguments, and every turn is traced and priced. It is a local review-support and learning tool,
 not a security assessment; see "Scope and limits" below.
 
-**Status: all six milestones built (M6: feedback, evaluation, CI).** Working today: accounts and roles, streaming chat
+**Status: all six milestones built (M6: feedback, evaluation, CI), plus M7 improvements.** Working today: accounts and roles, streaming chat
 with a per-conversation model choice, a model catalog with admin-controlled slots and generation
 settings, per-request cost from OpenRouter, Langfuse tracing with a local fallback, the React
 interface (M1), and a Knowledge Base with the OWASP Top 10 for LLM Applications, MITRE ATLAS and
@@ -23,7 +23,11 @@ servers from a catalog file whose tools join the same Gateway, off until an admi
 accepts their definitions, and blocked again when those definitions drift; and (M6) Feedback
 on answers with an admin dashboard and Evaluation Cases, `rampart eval` (DeepEval on real turns
 plus deterministic Guard metrics, with a cost estimate first), summarised short-term memory, and
-CI. `docs/traceability.md` maps every requirement and acceptance test to code and evidence.
+CI. M7 added sign-in throttling, Dependency File import with a batch vulnerability check, a
+run-specific Sentinel for injection tests, a fresh Guard Holdout Set with the model classifier
+measured, argument-level tool evaluation, trace retention and a data-flow inventory
+(`docs/reports/m7.md`). `docs/traceability.md` maps every requirement and acceptance test to code
+and evidence.
 
 ## Scope and limits
 
@@ -33,14 +37,18 @@ does not:
 - **Prompt analysis** runs fixed rules over a system prompt or tool schemas (missing boundaries,
   embedded secrets, over-broad tools, unbounded output, missing refusal guidance). It does not
   find every weakness, and a clean result is not a guarantee.
-- **Vulnerability lookup** queries OSV.dev for the packages and versions you name. It does not
-  discover your dependencies or judge whether a vulnerable function is reachable.
+- **Vulnerability lookup** queries OSV.dev for the packages and versions you name or import from
+  a Dependency File (requirements.txt, uv.lock, poetry.lock, package-lock.json, pyproject.toml,
+  package.json; PyPI and npm only). It does not judge whether a vulnerable function is
+  reachable, and a package without an exact version cannot be checked.
 - **The injection test** is a regression check of a fixed suite against a Target you run on the
   same machine. The demo Target is deterministic, so passing it demonstrates the harness and
   the two profiles, not a model's resistance to injection in general.
 - **Citations** show where a statement came from; they do not prove the advice is right.
-- **Guards** are defence in depth. The input Guard is a set of heuristics (96 % recall on the
-  inputs written with it, 40 % on held-out ones); the enforcement point is the deterministic
+- **Guards** are defence in depth. The input Guard's heuristics catch every attack in the set
+  they are tuned on but only 2 of 15 (13 %) in a fresh Holdout Set; the optional model
+  classifier (an admin flag) catches 14 of 15 there, with no false positives in either set
+  (`docs/reports/m7.md`). The enforcement point is the deterministic
   Gateway. Secret redaction matches credential-shaped strings; it cannot know every secret.
 - **Plugins** are trusted local programs: Rampart limits their environment and working folder
   and pins their reviewed definitions, but does not sandbox them.
@@ -104,7 +112,8 @@ no embeddings unless `nomic-embed-text` is pulled and assigned to the embedding 
 | Backend lint, format check, types | `uv run ruff check src tests && uv run ruff format --check src && uv run pyright src` |
 | Frontend type check, lint, tests, build | `cd frontend && npm run typecheck && npm run lint && npm test && npm run build` |
 | Manage accounts | `uv run rampart user create <name>`, `uv run rampart user reset-password <name>`, `uv run rampart user list` |
-| Evaluate (shows the cost and asks first) | `uv run rampart eval --suite guard` (free), `--suite tool`, `--suite qa --limit 3`, `--suite all` |
+| Evaluate (shows the cost and asks first) | `uv run rampart eval --suite guard` (free), `--suite guard --classifier` (under a cent), `--suite tool`, `--suite qa --limit 3`, `--suite all` |
+| Delete old local traces | `uv run rampart traces prune --older-than 30` (`--dry-run` lists them first) |
 | Live smoke tests (need keys; cost cents) | `uv run --env-file .env pytest -m live` |
 
 The API is documented in `docs/API.md`; the interactive reference is served at `/api/docs`.
@@ -128,6 +137,9 @@ Secrets and provider settings live in `.env` (never committed); see `.env.exampl
 | `RAMPART_PLUGINS_CATALOG` | Plugin catalog file, default `plugins/catalog.yaml` |
 | `RAMPART_HISTORY_SUMMARY_TOKENS`, `RAMPART_HISTORY_KEEP_TURNS` | When to summarise older turns (6000 estimated tokens) and how many user turns stay word for word (3) |
 | `RAMPART_EVAL_REPORTS_DIR` | Where `rampart eval` writes reports, default `docs/reports/eval/` |
+| `RAMPART_LOGIN_MAX_FAILURES_PER_USER`, `RAMPART_LOGIN_MAX_FAILURES_PER_CLIENT`, `RAMPART_LOGIN_WINDOW_MINUTES` | Sign-in throttling: failed sign-ins allowed per username (5) and per client address (30) in the window (15 minutes) |
+| `RAMPART_TRUST_PROXY_HEADERS` | Read the client address from `X-Forwarded-For`; only behind a proxy that sets it (`false`) |
+| `RAMPART_TRACE_RETENTION_DAYS` | When set, local JSONL traces older than this many days are deleted at server start (unset) |
 
 `models.yaml` is the model catalog: each entry has an id, provider (`openrouter` or `ollama`),
 display name, kind (`chat` or `embedding`) and tier (`cheap` or `powerful`), and the file sets the
@@ -174,13 +186,19 @@ Rampart is built as the secure agent it recommends (ADR 0003):
   Provenance-labelled data, and instructions aimed at AI assistants in them are flagged. Rates
   on the labelled guard sets are in `docs/reports/m3.md`.
 - **Tools.** `search_knowledge`, `analyze_prompt` (deterministic rules over a system prompt or
-  tool schemas), `lookup_vulnerabilities` (OSV.dev, cached), `generate_report` (a stored Markdown
-  Report), `run_injection_test` (runs the fixed suite against a registered loopback Target).
+  tool schemas), `lookup_vulnerabilities` (OSV.dev, cached), `check_dependencies` (every package
+  of the Project Profile in one OSV.dev batch, M7), `generate_report` (a stored Markdown Report),
+  `run_injection_test` (runs the fixed suite against a registered loopback Target).
+- **Sign-in throttling (M7).** Five failed sign-ins for one username, or thirty from one client
+  address, within fifteen minutes and further attempts get 429 with Retry-After until the
+  window passes; the password is not checked meanwhile.
 - **Injection tests (M4).** A registered Target must resolve to a loopback address, checked at
   registration and again by the Gateway. The fixed `seed-v1` suite drives the Target and reads
   each outcome (proposed, executed, received) from the Target's own audit log and sink, never
-  from its replies; a candidate that already contains the marker is flagged contaminated. The
-  demo Target (`rampart demo-target`) ships secure and vulnerable profiles.
+  from its replies. Each run plants a random Sentinel in the Target and looks for it in the
+  sink text itself (M7), so the Target never grades its own result. The demo Target
+  (`rampart demo-target`) ships secure and vulnerable profiles; the user guide documents the
+  five endpoints a Target of your own needs.
 - **Plugins (M5).** MCP servers listed in `plugins/catalog.yaml`, reached with the official MCP
   Python SDK over stdio; no command ever comes from the UI or the model. Enabling lists a
   server's tools; an admin reviews them (with warnings for instruction-like text, names that
@@ -210,9 +228,9 @@ proves the policy and Guard digests are unchanged by Feedback.
 
 | Suite | What it measures | Cost |
 |---|---|---|
-| `guard` | Precision and recall of the input Guard on 104 labelled inputs, plus 30 held out | free, deterministic |
-| `tool` | DeepEval tool correctness: did a real turn call the expected Tools (20 tasks) | cents (Rampart's own calls) |
-| `qa` | DeepEval faithfulness, answer relevancy, contextual precision and recall on real turns (30 questions), judged by the judge Slot | about $2 at list prices for all 30 |
+| `guard` | Precision and recall of the input Guard on 134 labelled inputs, plus a Holdout Set of 30; `--classifier` adds the model classifier alone and combined | free, deterministic; under a cent with `--classifier` |
+| `tool` | DeepEval tool correctness plus argument correctness, Gateway decision correctness and unnecessary calls on real turns (24 tasks) | cents (Rampart's own calls) |
+| `qa` | DeepEval faithfulness, answer relevancy, contextual precision and recall on real turns (30 questions), judged by the judge Slot | estimated $2.08 for all 30; the M7 runs cost $0.95 each |
 
 It shows an estimate at OpenRouter's listed prices and waits for a yes; turns run on a snapshot
 of the database, so evaluation never adds Conversations or usage to the real data. Reports (Markdown
@@ -237,15 +255,15 @@ src/rampart/        backend package and `rampart` CLI
   eval/             `rampart eval`: datasets, Guard metrics, DeepEval judge and scoring, reports
   knowledge/        Sources, chunking, uploads, embeddings, Chroma and BM25 retrieval, ingest,
                     primers/ (written for Rampart)
-  profile/          Project Profile
+  profile/          Project Profile and Dependency File parsing
   usage/            token and cost totals
   tracing/          Langfuse and JSONL tracers
 frontend/           React single-page app (Vite, TypeScript, Tailwind, shadcn/ui)
 fixtures/           synthetic Sources (one deliberately poisoned); injection/ (the seed suite)
 plugins/            catalog.yaml and the fixture MCP servers: secret_scanner/, fixture_docs/,
                     fixture_docs_drifted/ (a modified copy, for the drift demo)
-eval/               evaluation datasets: qa_cases.jsonl (30), tool_cases.jsonl (20),
-                    guard_cases.jsonl (104), guard_holdout.jsonl (30, never tuned against)
+eval/               evaluation datasets: qa_cases.jsonl (30), tool_cases.jsonl (24),
+                    guard_cases.jsonl (134), guard_holdout.jsonl (30, never tuned against)
 docs/               DESIGN.md (decisions), SPEC.md (specification), API.md (contract),
                     user_guide.md and admin_guide.md (also searched by help mode),
                     adr/ (decision records), reports/ (milestone reports)
@@ -263,6 +281,7 @@ models.yaml         model catalog and slot defaults
 - `docs/adr/`: architecture decision records
 - `docs/reports/`: a report with test results after each milestone; `docs/reports/eval/`: evaluation reports
 - `docs/traceability.md`: every requirement, acceptance test and rubric line, with links to code and evidence
+- `docs/data_flows.md`: every store and outbound boundary, what is redacted before it, how long it is kept
 - `docs/critique_prompt.md`, `docs/critique_log.md`: an outside model's critique of the project and what was done about it
 
 ## License

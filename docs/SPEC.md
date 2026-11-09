@@ -1,6 +1,6 @@
 # P6: LLM Application Security Assistant
 
-Version 1.1 | 6 November 2026 | Coding-model implementation specification, revised after the design interview (see docs/DESIGN.md and docs/adr/)
+Version 1.2 | 9 November 2026 | Coding-model implementation specification, revised after the design interview (see docs/DESIGN.md and docs/adr/) and extended for milestone M7 (section 22)
 
 This specification is self-contained. It describes Rampart, the product built from P6, and applies the decisions in `docs/DESIGN.md` (Q1 to Q34) and `docs/adr/`; where texts disagree, `docs/DESIGN.md` wins. Vocabulary follows `CONTEXT.md`. Every rubric line maps to a named feature with an acceptance test (section 15). All adversarial material is synthetic and local; the only test Targets are registered loopback applications owned by the user.
 
@@ -315,3 +315,28 @@ Ollama catalog defaults: `ollama/qwen3:8b` (chat, cheap) and `ollama/nomic-embed
 - Vocabulary aligned with `CONTEXT.md`; `Feedback.value`, `Passage` and `contributed_by` replace `rating`, `Chunk` and `origin` (Q16, Q24, Q34).
 - One-command `rampart demo` (Q29); six milestones, hard rubric met after M3, a report per milestone (Q33); three decision records (Q25).
 - Tests A04, A07, A16 to A19, A22, A23 rewritten; R02, R04, R07 to R10, R12 to R14 reworded; sections 20 and 21 added; section 19 updated.
+
+## 22. Version 1.2: milestone M7 (9 November 2026)
+
+M7 adds the improvements the owner chose after the first prototype: the high-value ones and those that cost no money. Evidence is in `docs/reports/m7.md`; vocabulary added to `CONTEXT.md`: Sentinel, Dependency File, Holdout Set.
+
+Changed requirements:
+
+- P6-R01 adds sign-in throttling: five failed sign-ins for one username, or thirty from one client address, within fifteen minutes, and further attempts get 429 with Retry-After until the window passes. Refused attempts are not counted and the password is not checked. A password change ends the throttling. `X-Forwarded-For` is read only when a setting says a proxy sets it.
+- P6-R04 counts six built-in Tools: `check_dependencies` checks every package of the caller's Project Profile, or one ecosystem of them, in one OSV.dev batch. Packages without an exact version are listed as not checked. The Tool allows 6 calls an hour, has Provenance `API` and needs no Approval.
+- The Project Profile (section 9) holds up to 1000 packages, and a Dependency File can be imported into it: requirements.txt, uv.lock, poetry.lock, package-lock.json, pyproject.toml or package.json, PyPI and npm only. The file is parsed without a Model and never stored. The import merges by ecosystem and name, or replaces the list on request. Above 30 packages the prompt gets counts instead of the list.
+- The injection harness (section 11) generates a random Sentinel per run. The Target plants it as its internal record. The harness checks the sink text itself and no longer accepts the Target's own verdict. A Target that ignores the Sentinel is reported as weaker evidence. The five endpoints are documented as the Target adapter contract in the user guide.
+- Evaluation (section 13): the Guard sets become a development set of 134 inputs and a Holdout Set of 30, written before the M7 rule changes. `rampart eval --suite guard --classifier` also measures the model classifier, through the same function the turn graph uses. Tool cases name their expected calls, and the tool suite adds argument correctness, decision correctness and unnecessary calls.
+- Observability (section 12): `rampart traces prune --older-than DAYS` and an optional `RAMPART_TRACE_RETENTION_DAYS` at start. `docs/data_flows.md` lists every store and outbound boundary.
+
+New acceptance tests:
+
+| ID | Scenario | Required result |
+|---|---|---|
+| P6-A25 | Repeated failed sign-ins | The sixth attempt within the window gets 429 with Retry-After and is not counted; another username is unaffected; success or a password reset clears the count |
+| P6-A26 | Trace retention | `rampart traces prune` deletes only dated trace files older than the given age; the server prunes at start only when the setting is present |
+| P6-A27 | Injection test with a run-specific Sentinel | Each run uses a fresh Sentinel; the outcome is read from the sink text; an old value in the sink is not counted; a Target that ignores the Sentinel is marked as weaker evidence |
+| P6-A28 | Dependency File import | Six formats parsed into PyPI and npm packages; ranges marked unpinned; URL and path sources skipped with a reason; merge, replace and the 1000-package cap behave as specified; nothing is saved on preview |
+| P6-A29 | `check_dependencies` | One batch query for the pinned packages; unpinned listed as not checked; rows sorted by severity; records cached; rows in the Report; an outage gives a clear error |
+| P6-A30 | Guard Holdout Set and the classifier | Floors fixed before the rules are tuned: at least 60 % recall and at most 10 % false positives; the measured level is pinned as a regression floor; the classifier is reported alone and combined |
+| P6-A31 | Tool evaluation with expected calls | Argument correctness, decision correctness and unnecessary calls are scored deterministically and reported beside tool correctness |

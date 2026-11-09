@@ -16,7 +16,9 @@ instructions, and text you paste is treated as data to analyse, never as instruc
 
 There is no sign-up page. An administrator creates your account and gives you a username and
 a password. Change your password on the Account page; changing it signs out your other
-sessions.
+sessions. After five wrong passwords for one username within fifteen minutes, sign-in is refused
+until the window passes, even with the right password; an administrator can reset your
+password to end it at once.
 
 ## Conversations
 
@@ -72,8 +74,18 @@ The Project Profile tells Rampart about your work so that answers fit your stack
 Project Profile page and describe your stack in a few sentences (up to 2000 characters), then list
 the packages you use with their ecosystem (such as PyPI or npm), name and version. Rampart
 reads the profile at the start of every turn. Delete the profile on the same page and it is
-no longer used from the next turn on. Later milestones use the packages to pre-fill
-vulnerability lookups.
+no longer used from the next turn on.
+
+To fill the package list from your project, use **Import a Dependency File** at the top of the
+page: paste or choose a requirements.txt, uv.lock, poetry.lock, package-lock.json,
+pyproject.toml or package.json, then **Preview**. Rampart reads the names and versions without
+a model and does not keep the file. The preview shows what it read, which packages have no exact
+version (those cannot be checked for vulnerabilities, so prefer a lock file), and the lines it
+skipped, such as `-r` includes or packages installed from a URL. **Add to profile** saves at
+once: packages already in the profile take the file's versions, new ones are added, nothing is
+removed, unless you tick **Replace all packages**. A profile holds up to 1000 packages; with
+more than 30 the assistant sees counts rather than the list, and checks them with
+`check_dependencies`.
 
 ## Help mode
 
@@ -135,8 +147,11 @@ tool, its arguments, what Rampart's Gateway decided, and the result.
   answer explains them but adds no findings of its own.
 - **Known vulnerabilities** (`lookup_vulnerabilities`): ask about a package and version, for
   example "Check PyPI requests 2.25.0". Results come from OSV.dev and are cached for a few
-  hours; if OSV.dev cannot be reached, the card says so. The packages in your Project Profile
-  are known to Rampart, so you can say "check my packages".
+  hours; if OSV.dev cannot be reached, the card says so.
+- **Check all your packages** (`check_dependencies`): ask "check my dependencies" and Rampart
+  sends every package of your Project Profile with an exact version to OSV.dev in one batch.
+  The answer lists the known vulnerabilities, most severe first, and the packages it could not
+  check because they have no exact version. A report includes the full table.
 - **Search the Knowledge Base** (`search_knowledge`): Rampart may search again during an
   answer; those passages are cited like the others.
 - **Report** (`generate_report`): ask for a report and Rampart stores one; see Reports below.

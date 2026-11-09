@@ -12,8 +12,18 @@ There is no sign-up page. Create accounts on the Admin page (Users) or with the 
 - `uv run rampart user reset-password <name>` sets a new password and signs the account out.
 - `uv run rampart user list` lists accounts.
 
-Deleting a user on the Admin page also deletes their conversations, uploads and Project
-Profile. You cannot delete your own account.
+Deleting a user on the Admin page also deletes their conversations (with their saved
+conversation state), uploads and Project Profile. You cannot delete your own account.
+
+Sign-in is throttled: after five failed sign-ins for one username, or thirty from one client
+address, within fifteen minutes, further attempts get "429 Too Many Requests" with a
+Retry-After header until the oldest failure leaves the window. The password is not checked
+meanwhile, and refused attempts are not counted, so the block ends on its own. Resetting a
+user's password (Admin page or `rampart user reset-password`) ends it at once. The limits are
+`RAMPART_LOGIN_MAX_FAILURES_PER_USER`, `RAMPART_LOGIN_MAX_FAILURES_PER_CLIENT` and
+`RAMPART_LOGIN_WINDOW_MINUTES`. Behind a reverse proxy every request seems to come from the
+proxy; set `RAMPART_TRUST_PROXY_HEADERS=true` only if the proxy sets `X-Forwarded-For`, or a
+client could choose its own address. Each block is logged by the `rampart.auth` logger.
 
 ## Models and Slots
 
@@ -93,6 +103,12 @@ under the same trace id, so traces survive a Langfuse outage. The trace id is st
 assistant message, and Feedback becomes a `user_feedback` score on it (in Langfuse and in the
 JSONL file).
 
+Local trace files are kept until you delete them: `uv run rampart traces prune --older-than 30`
+deletes the files older than 30 days (`--dry-run` lists them first), and
+`RAMPART_TRACE_RETENTION_DAYS=30` does the same each time the server starts. Langfuse keeps
+its copy under the retention setting of your Langfuse project. `docs/data_flows.md` lists every
+place Rampart stores data or sends it, what is redacted first and how long it is kept.
+
 ## Tools and the Gateway
 
 Five built-in tools exist: `search_knowledge`, `analyze_prompt`, `lookup_vulnerabilities`,
@@ -131,11 +147,14 @@ An administrator cannot approve a call that the requesting user is meant to deci
 - **Input (G1).** Secrets are always removed from user messages before storage or any model
   call. Heuristic rules block messages that read as attempts to override Rampart's
   instructions, extract its configuration, adopt an unrestricted persona or misuse tools,
-  unless the text is quoted or asked about. On Rampart's labelled set (`eval/guard_cases.jsonl`)
-  the rules block 96% of attacks with no false alarms; on a held-out set written afterwards
-  (`eval/guard_holdout.jsonl`) they block 40%, again with no false alarms. The optional model
-  classifier (Settings) asks the grader model as well, one extra call per turn: on the held-out
-  set it caught every attack with no false alarm. Turning the heuristics off keeps secret
+  unless the text is quoted or asked about. On the development set the rules are tuned on
+  (`eval/guard_cases.jsonl`, 134 inputs) they block every attack with no false alarms; on the
+  Holdout Set written in M7 before the last tuning (`eval/guard_holdout.jsonl`) they block only
+  2 of 15 attacks, again with no false alarms. Rules match wording, and new wording slips past.
+  The optional model classifier (Settings) asks the grader model as well, one extra call per
+  turn that the rules let through: on the Holdout Set it caught 14 of 15 attacks with no false
+  alarm, at about $0.00005 a call with the default grader. Measure it on your own Models with
+  `rampart eval --suite guard --classifier`. Turning the heuristics off keeps secret
   redaction.
 - **Provenance (G2).** Every passage and tool result reaches the model as delimited, labelled
   data. Passages and tool output that contain instructions aimed at AI assistants are flagged,
@@ -236,10 +255,15 @@ evaluation run. Reports name such cases by id only, because their questions came
 `rampart eval --suite qa|tool|guard|all [--limit N]` (or Admin page, Evaluation) runs:
 
 - `guard`: the input Guard's precision, recall and false-positive rate on `eval/guard_cases.jsonl`
-  (104 inputs written together with the rules) and `eval/guard_holdout.jsonl` (30, never used to
-  tune them). Free and deterministic; CI runs it on every push.
-- `tool`: real turns on the 20 tasks in `eval/tool_cases.jsonl` and DeepEval's tool correctness
-  (every expected Tool called; a task that expects none passes only if none was called). No judge.
+  (the development set, 134 inputs) and `eval/guard_holdout.jsonl` (the Holdout Set, 30, never
+  used to tune the rules). Free and deterministic; CI runs it on every push. With `--classifier`
+  the grader Slot's model classifier also judges every input once (under a cent with the default
+  grader), and the report adds the classifier alone and combined with the rules, as the runtime
+  applies them when the Settings flag is on.
+- `tool`: real turns on the 24 tasks in `eval/tool_cases.jsonl`. DeepEval's tool correctness
+  (every expected Tool called; a task that expects none passes only if none was called), plus
+  three deterministic checks: the structured arguments of each expected call, the Gateway's
+  decision on it, and no call to a Tool the task does not expect. No judge.
 - `qa`: real turns on the 30 questions in `eval/qa_cases.jsonl`, scored by DeepEval's
   faithfulness, answer relevancy, contextual precision and contextual recall, with the judge Slot
   as the judge (pass at 0.7). A metric that does not apply (nothing was retrieved) is reported as

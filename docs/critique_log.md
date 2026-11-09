@@ -32,6 +32,20 @@ requirement). The prompt is in `docs/critique_prompt.md`.
 | 14 | No browser end-to-end tests (medium) | Partly disagree | A recorded scope decision (DESIGN Q31, SPEC non-goals). Each milestone was nevertheless driven in a real browser against the real backend and real Models (m2 to m6 reports), and the frontend never renders raw HTML (no `dangerouslySetInnerHTML`; Plugin text is plain text). Not done: committing a browser suite. |
 | 15 | Conflicting documentation (medium) | Agreed, fixed | `docs/DESIGN.md` is marked a historical record; the spec's contradiction about the judge Slot, the "hard rubric met after M3" claim and the Plugin naming in A20 are corrected. Help mode searches only the user and admin guides, which are current. |
 
+## Follow-up in M7 (2026-11-09)
+
+Items the responses above left "not done", and what M7 changed (`docs/reports/m7.md`):
+
+| # | Was not done | Now |
+|---|---|---|
+| 1 | Dependency discovery | Partly done: a Dependency File (six formats, PyPI and npm) fills the Project Profile, and `check_dependencies` checks it in one OSV.dev batch. Reachability is still not judged; a task-based study with real users is still not done. |
+| 5 | A data-flow inventory and a trace retention policy | Done: `docs/data_flows.md`; `rampart traces prune` and `RAMPART_TRACE_RETENTION_DAYS`. Writing it found a real gap, now fixed: deleting an account left its conversations' checkpoints behind. |
+| 9 | Run-specific random markers | Done: a random Sentinel per run, checked by the harness in the sink text itself; a Target that ignores it is reported as weaker evidence. |
+| 10 | Independent cases | Not done. A fresh Guard Holdout Set was written before the rules were tuned, but by the same author. |
+| 11 | Argument-level tool checks | Done: argument correctness, Gateway decision correctness and unnecessary calls. A human-rated judge sample is still not done. |
+| 12 | The full QA run | Done: all 30 cases twice, against a target fixed beforehand (24 of 30 passing every metric): 23, then 26 after a retrieval fix. |
+| 7 | The Guard as a classifier | Measured on a fresh Holdout Set: the rules catch 2 of 15 attacks, the model classifier 14 of 15, neither blocks a benign input. This supports the critique: the rules are advisory. |
+
 ## The critique, verbatim
 
 This is a document-level review: source code, datasets, milestone reports and actual evaluation outputs were not supplied. Test names in `docs/traceability.md` show intended coverage, not independently verified behavior. Where the documents leave a control unspecified, I identify an assurance gap—not a confirmed exploitable implementation bug.
