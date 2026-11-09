@@ -5,7 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
-from rampart.catalog.service import UNSET, CatalogService
+from rampart.catalog.service import CatalogService
 from rampart.deps import csrf_protect, current_user, get_db, require_admin
 from rampart.schemas import (
     ModelEnabledIn,
@@ -16,6 +16,7 @@ from rampart.schemas import (
     model_out,
     slots_out,
 )
+from rampart.unset import UNSET
 
 router = APIRouter(prefix="/api/models", tags=["models"], dependencies=[Depends(current_user)])
 admin_router = APIRouter(

@@ -41,7 +41,6 @@ class Settings(BaseSettings):
     trust_proxy_headers: bool = False
     max_message_chars: int = 32_000
     frontend_dist: Path | None = None
-    ollama_probe_ttl_seconds: float = 30.0
     # Ollama's default context (4096 tokens) is smaller than a retrieval prompt, and Ollama cuts
     # the start of a prompt that does not fit, which is where the system prompt sits.
     ollama_num_ctx: int = 16384
@@ -56,15 +55,11 @@ class Settings(BaseSettings):
     max_uploads_per_user: int = 50
     max_upload_pages: int = 300
     retrieval_k: int = 6
-    max_context_passages: int = 6
-    min_relevant_passages: int = 1
     max_rewrites: int = 2
-    max_model_calls_per_turn: int = 8
     # Short-term memory: past this many (estimated) tokens of model-facing history, older turns
     # are summarised; the last few user turns always stay word for word.
     history_summary_tokens: int = 6000
     history_keep_turns: int = 3
-    retrieval_budget_seconds: float = 60.0
     fetch_timeout_seconds: float = 60.0
 
     # Controls (M3)

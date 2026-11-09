@@ -159,13 +159,9 @@ class ChatService:
         return CatalogService(db, self.catalog, self.probe)
 
     def _limits(self) -> TurnLimits:
-        s = self.settings
+        s = self.settings  # the other limits are fixed in TurnLimits
         return TurnLimits(
             max_rewrites=s.max_rewrites,
-            min_relevant=s.min_relevant_passages,
-            max_context_passages=s.max_context_passages,
-            max_model_calls=s.max_model_calls_per_turn,
-            retrieval_budget_seconds=s.retrieval_budget_seconds,
             history_summary_tokens=s.history_summary_tokens,
             history_keep_turns=s.history_keep_turns,
         )

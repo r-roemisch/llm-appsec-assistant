@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from rampart.admin.settings import UNSET, AdminSettingsService
+from rampart.admin.settings import AdminSettingsService
 from rampart.db import utcnow
 from rampart.deps import csrf_protect, get_db, require_admin
 from rampart.errors import NotFound
@@ -29,6 +29,7 @@ from rampart.schemas import (
     tool_out,
 )
 from rampart.tools.registry import ToolRegistry
+from rampart.unset import UNSET
 
 router = APIRouter(
     prefix="/api/admin",

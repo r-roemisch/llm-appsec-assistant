@@ -19,13 +19,7 @@ from rampart.catalog.providers import ProviderProbe, model_available
 from rampart.db import utcnow
 from rampart.errors import Invalid, NotFound
 from rampart.models import ModelSetting, SlotSetting
-
-
-class _Unset:
-    pass
-
-
-UNSET = _Unset()
+from rampart.unset import UNSET, Unset
 
 
 @dataclass(frozen=True)
@@ -147,20 +141,20 @@ class CatalogService:
         self,
         slot: str,
         *,
-        model_id: str | _Unset = UNSET,
-        temperature: float | None | _Unset = UNSET,
-        max_tokens: int | None | _Unset = UNSET,
+        model_id: str | Unset = UNSET,
+        temperature: float | None | Unset = UNSET,
+        max_tokens: int | None | Unset = UNSET,
     ) -> dict[str, SlotConfig]:
         current = self.slot_config(slot)
         new_model = current.model
-        if not isinstance(model_id, _Unset):
+        if not isinstance(model_id, Unset):
             new_model = self.get_spec(model_id)
             if new_model.kind != SLOT_KIND[slot]:
                 raise Invalid(f"slot '{slot}' needs a {SLOT_KIND[slot]} model")
             if not self.is_enabled(new_model.id):
                 raise Invalid(f"model {new_model.id} is disabled")
-        new_temperature = current.temperature if isinstance(temperature, _Unset) else temperature
-        new_max_tokens = current.max_tokens if isinstance(max_tokens, _Unset) else max_tokens
+        new_temperature = current.temperature if isinstance(temperature, Unset) else temperature
+        new_max_tokens = current.max_tokens if isinstance(max_tokens, Unset) else max_tokens
         validate_generation_settings(slot, new_temperature, new_max_tokens)
         row = self.db.get(SlotSetting, slot)
         if row is None:

@@ -14,16 +14,10 @@ from rampart.config import Settings
 from rampart.db import utcnow
 from rampart.errors import Invalid
 from rampart.models import AppSetting
+from rampart.unset import UNSET, Unset
 
 PERSONA_RANGE = (50, 8000)
 BUDGET_RANGE = (1_000, 10_000_000)
-
-
-class _Unset:
-    pass
-
-
-UNSET: Any = _Unset()
 
 
 @dataclass(frozen=True)
@@ -81,7 +75,7 @@ class AdminSettingsService:
         input_guard: Any = UNSET,
         input_classifier: Any = UNSET,
     ) -> AdminSettings:
-        if not isinstance(persona, _Unset):
+        if not isinstance(persona, Unset):
             if persona is not None:
                 persona = str(persona).strip()
                 lo, hi = PERSONA_RANGE
@@ -90,7 +84,7 @@ class AdminSettingsService:
                         f"the persona must be {lo} to {hi} characters (null restores the default)"
                     )
             self._set("persona", persona, actor_id)
-        if not isinstance(conversation_token_budget, _Unset):
+        if not isinstance(conversation_token_budget, Unset):
             if conversation_token_budget is not None:
                 lo, hi = BUDGET_RANGE
                 if (
@@ -100,7 +94,7 @@ class AdminSettingsService:
                     raise Invalid(f"the conversation token budget must be {lo} to {hi}")
             self._set("conversation_token_budget", conversation_token_budget, actor_id)
         for key, value in (("input_guard", input_guard), ("input_classifier", input_classifier)):
-            if not isinstance(value, _Unset):
+            if not isinstance(value, Unset):
                 if value is not None and not isinstance(value, bool):
                     raise Invalid(f"{key} must be true or false")
                 self._set(key, value, actor_id)

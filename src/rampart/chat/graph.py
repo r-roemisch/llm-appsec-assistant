@@ -104,6 +104,9 @@ class Grader:
 
 @dataclass(frozen=True)
 class TurnLimits:
+    """What bounds one turn. Settings supply the rewrites and the history limits; the rest is
+    fixed here: passages the answer is written from, Model calls and seconds spent searching."""
+
     max_rewrites: int = 2
     min_relevant: int = 1
     max_context_passages: int = 6

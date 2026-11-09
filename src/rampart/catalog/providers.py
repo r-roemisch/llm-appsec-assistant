@@ -9,6 +9,9 @@ import httpx
 
 from rampart.config import Settings
 
+# How long one answer from the Ollama server is reused before it is asked again.
+PROBE_TTL_SECONDS = 30.0
+
 
 class ProviderProbe(Protocol):
     def openrouter_available(self) -> bool: ...
@@ -32,7 +35,7 @@ class LiveProbe:
 
     def ollama_models(self) -> set[str] | None:
         now = time.monotonic()
-        if now - self._cached_at < self.settings.ollama_probe_ttl_seconds:
+        if now - self._cached_at < PROBE_TTL_SECONDS:
             return self._cached
         self._cached = self._fetch()
         self._cached_at = now

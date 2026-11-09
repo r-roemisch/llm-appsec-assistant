@@ -29,7 +29,7 @@ from rampart.config import Settings
 from rampart.db import session_scope, utcnow
 from rampart.errors import Conflict, Invalid, NotFound
 from rampart.models import Plugin
-from rampart.plugins.catalog import Catalog, CatalogEntry, CatalogFile
+from rampart.plugins.catalog import CatalogEntry, CatalogFile, PluginCatalog
 from rampart.plugins.connection import ClientFactory, describe_error, list_definitions
 from rampart.plugins.definitions import tools_digest
 
@@ -87,7 +87,7 @@ class PluginService:
             settings.plugins_catalog_path, settings.plugins_dir, settings.plugin_timeout_seconds
         )
 
-    def catalog(self) -> Catalog:
+    def catalog(self) -> PluginCatalog:
         return self.catalog_file.get()
 
     # ---- reads -------------------------------------------------------------------------------

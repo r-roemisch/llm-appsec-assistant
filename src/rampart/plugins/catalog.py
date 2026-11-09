@@ -49,7 +49,7 @@ class CatalogEntry:
 
 
 @dataclass(frozen=True)
-class Catalog:
+class PluginCatalog:
     path: Path
     entries: dict[str, CatalogEntry] = field(default_factory=dict)
     error: str | None = None  # the whole file could not be read
@@ -103,23 +103,25 @@ def _entry(key: Any, raw: Any, plugins_dir: Path, default_timeout: float) -> Cat
     )
 
 
-def load_catalog(path: Path, plugins_dir: Path, default_timeout: float = 20.0) -> Catalog:
+def load_catalog(path: Path, plugins_dir: Path, default_timeout: float = 20.0) -> PluginCatalog:
     """Read and validate the catalog. A missing file is an empty catalog, not an error; a file
     that cannot be parsed is reported, and so is each invalid entry, without failing the rest."""
     if not path.is_file():
-        return Catalog(path=path)
+        return PluginCatalog(path=path)
     try:
         data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     except (OSError, UnicodeDecodeError, yaml.YAMLError) as exc:
-        return Catalog(path=path, error=f"the catalog file could not be read: {type(exc).__name__}")
+        return PluginCatalog(
+            path=path, error=f"the catalog file could not be read: {type(exc).__name__}"
+        )
     plugins = data.get("plugins", {}) if isinstance(data, dict) else None
     if not isinstance(plugins, dict):
-        return Catalog(path=path, error="the catalog must have a 'plugins' mapping")
+        return PluginCatalog(path=path, error="the catalog must have a 'plugins' mapping")
     entries = {}
     for key, raw in plugins.items():
         entry = _entry(key, raw, plugins_dir.resolve(), default_timeout)
         entries[entry.id] = entry
-    return Catalog(path=path, entries=entries)
+    return PluginCatalog(path=path, entries=entries)
 
 
 class CatalogFile:
@@ -130,9 +132,9 @@ class CatalogFile:
         self.plugins_dir = plugins_dir
         self.default_timeout = default_timeout
         self._stamp: tuple[int, int] | None = None
-        self._catalog: Catalog | None = None
+        self._catalog: PluginCatalog | None = None
 
-    def get(self) -> Catalog:
+    def get(self) -> PluginCatalog:
         try:
             stat = self.path.stat()
             stamp: tuple[int, int] | None = (stat.st_mtime_ns, stat.st_size)
