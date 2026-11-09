@@ -16,9 +16,8 @@ from rampart.catalog.catalog import (
     validate_generation_settings,
 )
 from rampart.catalog.providers import ProviderProbe, model_available
-from rampart.db import utcnow
 from rampart.errors import Invalid, NotFound
-from rampart.models import ModelSetting, SlotSetting
+from rampart.models import AppSetting
 from rampart.unset import UNSET, Unset
 
 
@@ -53,12 +52,16 @@ class CatalogService:
         return spec
 
     def is_enabled(self, model_id: str) -> bool:
-        row = self.db.get(ModelSetting, model_id)
-        return True if row is None else row.enabled
+        stored = AppSetting.read(self.db, f"model:{model_id}")
+        return not isinstance(stored, dict) or stored.get("enabled") is not False
 
     def _disabled_ids(self) -> set[str]:
-        rows = self.db.scalars(select(ModelSetting).where(ModelSetting.enabled.is_(False)))
-        return {row.model_id for row in rows}
+        rows = self.db.scalars(select(AppSetting).where(AppSetting.key.like("model:%")))
+        return {
+            row.key.removeprefix("model:")
+            for row in rows
+            if isinstance(row.value, dict) and row.value.get("enabled") is False
+        }
 
     def model_views(self) -> list[ModelView]:
         disabled = self._disabled_ids()
@@ -87,13 +90,7 @@ class CatalogService:
                 raise Invalid(
                     f"model {spec.id} is assigned to slot(s) {', '.join(users)}; reassign first"
                 )
-        row = self.db.get(ModelSetting, model_id)
-        if row is None:
-            row = ModelSetting(model_id=model_id, enabled=enabled)
-            self.db.add(row)
-        else:
-            row.enabled = enabled
-            row.updated_at = utcnow()
+        AppSetting.write(self.db, f"model:{model_id}", {"enabled": enabled})
         self.db.flush()
         return self.model_view(model_id)
 
@@ -114,8 +111,8 @@ class CatalogService:
         if slot not in SLOTS:
             raise NotFound(f"unknown slot {slot}")
         default = self.catalog.slot_defaults[slot]
-        row = self.db.get(SlotSetting, slot)
-        if row is None:
+        stored = AppSetting.read(self.db, f"slot:{slot}")
+        if not isinstance(stored, dict):
             return SlotConfig(
                 slot=slot,
                 model=self.catalog.models[default.model_id],
@@ -123,15 +120,16 @@ class CatalogService:
                 temperature=default.temperature,
                 max_tokens=default.max_tokens,
             )
-        model = self.catalog.models.get(row.model_id or default.model_id)
+        model = self.catalog.models.get(stored.get("model_id") or default.model_id)
         if model is None:  # the catalog file changed under an old override
             model = self.catalog.models[default.model_id]
+        temperature, max_tokens = stored.get("temperature"), stored.get("max_tokens")
         return SlotConfig(
             slot=slot,
             model=model,
             source="override",
-            temperature=row.temperature,
-            max_tokens=row.max_tokens,
+            temperature=float(temperature) if isinstance(temperature, int | float) else None,
+            max_tokens=max_tokens if isinstance(max_tokens, int) else None,
         )
 
     def slot_configs(self) -> dict[str, SlotConfig]:
@@ -156,21 +154,17 @@ class CatalogService:
         new_temperature = current.temperature if isinstance(temperature, Unset) else temperature
         new_max_tokens = current.max_tokens if isinstance(max_tokens, Unset) else max_tokens
         validate_generation_settings(slot, new_temperature, new_max_tokens)
-        row = self.db.get(SlotSetting, slot)
-        if row is None:
-            row = SlotSetting(slot=slot)
-            self.db.add(row)
-        row.model_id = new_model.id
-        row.temperature = new_temperature
-        row.max_tokens = new_max_tokens
-        row.updated_at = utcnow()
+        override = {
+            "model_id": new_model.id,
+            "temperature": new_temperature,
+            "max_tokens": new_max_tokens,
+        }
+        AppSetting.write(self.db, f"slot:{slot}", override)
         self.db.flush()
         return self.slot_configs()
 
     def reset_slot(self, slot: str) -> dict[str, SlotConfig]:
         self.slot_config(slot)  # validates the name
-        row = self.db.get(SlotSetting, slot)
-        if row is not None:
-            self.db.delete(row)
-            self.db.flush()
+        AppSetting.write(self.db, f"slot:{slot}", None)
+        self.db.flush()
         return self.slot_configs()

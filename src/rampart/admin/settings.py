@@ -11,7 +11,6 @@ from sqlalchemy.orm import Session
 
 from rampart.chat.prompts import PERSONA
 from rampart.config import Settings
-from rampart.db import utcnow
 from rampart.errors import Invalid
 from rampart.models import AppSetting
 from rampart.unset import UNSET, Unset
@@ -35,8 +34,7 @@ class AdminSettingsService:
         self.settings = settings
 
     def _value(self, key: str) -> Any:
-        row = self.db.get(AppSetting, key)
-        return None if row is None else row.value
+        return AppSetting.read(self.db, key)
 
     def get(self) -> AdminSettings:
         persona = self._value("persona")
@@ -54,17 +52,7 @@ class AdminSettingsService:
         )
 
     def _set(self, key: str, value: Any, actor_id: int) -> None:
-        row = self.db.get(AppSetting, key)
-        if value is None:
-            if row is not None:
-                self.db.delete(row)
-            return
-        if row is None:
-            row = AppSetting(key=key)
-            self.db.add(row)
-        row.value = value
-        row.updated_at = utcnow()
-        row.updated_by = actor_id
+        AppSetting.write(self.db, key, value, actor_id)
 
     def update(
         self,

@@ -11,15 +11,7 @@ from sqlalchemy.orm import Session
 from helpers import Api, by_name, make_user, tool_call
 from rampart.db import session_scope
 from rampart.feedback.service import FeedbackService
-from rampart.models import (
-    AppSetting,
-    EvaluationCase,
-    Feedback,
-    ModelSetting,
-    Plugin,
-    SlotSetting,
-    ToolPolicy,
-)
+from rampart.models import AppSetting, EvaluationCase, Feedback, Plugin, ToolPolicy
 
 FAKE_KEY = "sk-proj-A1b2C3d4E5f6G7h8I9j0K1l2M3n4"
 
@@ -37,7 +29,7 @@ def _digest(material: Any) -> str:
 
 def policy_digest(db: Session) -> str:
     """A fingerprint of everything an admin controls: Tool policies, settings (persona, budget,
-    Guard flags), Slot and Model settings, Plugin enablement and accepted definitions."""
+    Guard flags, Slot overrides, Model switches), Plugin enablement and accepted definitions."""
     return _digest(
         {
             "tool_policies": [
@@ -46,14 +38,6 @@ def policy_digest(db: Session) -> str:
             ],
             "settings": [
                 [s.key, s.value] for s in db.scalars(select(AppSetting).order_by(AppSetting.key))
-            ],
-            "slots": [
-                [s.slot, s.model_id, s.temperature, s.max_tokens]
-                for s in db.scalars(select(SlotSetting).order_by(SlotSetting.slot))
-            ],
-            "models": [
-                [m.model_id, m.enabled]
-                for m in db.scalars(select(ModelSetting).order_by(ModelSetting.model_id))
             ],
             "plugins": [
                 [p.id, p.enabled, p.accepted_tools_digest]

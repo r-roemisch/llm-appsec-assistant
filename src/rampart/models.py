@@ -1,7 +1,7 @@
-"""ORM tables: users, sessions, Conversations, messages and their Model calls, Slot and Model
-settings (M1); Sources, Passages, Project Profiles and the Knowledge Base version (M2); Tool
-policy, the Tool-call audit, Approvals, Guard events, Reports, admin settings, the OSV.dev cache
-and Targets (M3; Targets are registered from M4)."""
+"""ORM tables: users, sessions, Conversations, messages and their Model calls (M1); Sources,
+Passages, Project Profiles and the Knowledge Base version (M2); Tool policy, the Tool-call audit,
+Approvals, Guard events, Reports, admin settings (which also hold the Slot and Model overrides),
+the OSV.dev cache and Targets (M3; Targets are registered from M4)."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ from sqlalchemy import (
     UniqueConstraint,
     text,
 )
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, Session, mapped_column, relationship
 
 from rampart.db import Base, utcnow
 
@@ -148,28 +148,6 @@ class ModelCall(Base):
     output_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
     cost_usd: Mapped[float | None] = mapped_column(Float, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utcnow)
-
-
-class SlotSetting(Base):
-    """An admin override of one Slot. Absent row means the models.yaml default applies."""
-
-    __tablename__ = "slot_settings"
-
-    slot: Mapped[str] = mapped_column(String(16), primary_key=True)
-    model_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
-    temperature: Mapped[float | None] = mapped_column(Float, nullable=True)
-    max_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utcnow)
-
-
-class ModelSetting(Base):
-    """An admin switch for one catalog Model. Absent row means enabled."""
-
-    __tablename__ = "model_settings"
-
-    model_id: Mapped[str] = mapped_column(String(200), primary_key=True)
-    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utcnow)
 
 
 class Source(Base):
@@ -352,14 +330,37 @@ class Report(Base):
 
 
 class AppSetting(Base):
-    """Admin settings that live in the database (the persona, budgets, Guard flags)."""
+    """Admin settings that live in the database: the persona, budget and Guard flags under
+    their own names, a Slot override under ``slot:<slot>`` and a Model switch under
+    ``model:<model_id>``. No row means the default (models.yaml, the settings, enabled)."""
 
     __tablename__ = "app_settings"
 
-    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    key: Mapped[str] = mapped_column(String(255), primary_key=True)
     value: Mapped[Any] = mapped_column(JSON, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utcnow)
     updated_by: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    @staticmethod
+    def read(db: Session, key: str) -> Any:
+        """The stored value, or None when there is no row."""
+        row = db.get(AppSetting, key)
+        return None if row is None else row.value
+
+    @staticmethod
+    def write(db: Session, key: str, value: Any, actor_id: int | None = None) -> None:
+        """Store a value; None deletes the row so that the default applies again."""
+        row = db.get(AppSetting, key)
+        if value is None:
+            if row is not None:
+                db.delete(row)
+            return
+        if row is None:
+            row = AppSetting(key=key)
+            db.add(row)
+        row.value = value
+        row.updated_at = utcnow()
+        row.updated_by = actor_id
 
 
 class OsvCacheEntry(Base):

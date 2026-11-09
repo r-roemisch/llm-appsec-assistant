@@ -6,8 +6,9 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
-from sqlalchemy import Engine, create_engine, event, inspect
+from sqlalchemy import Engine, create_engine, event, insert, inspect, select
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 
@@ -51,6 +52,7 @@ def init_db(engine: Engine) -> None:
 
     Base.metadata.create_all(engine)
     _add_missing_columns(engine)
+    _merge_legacy_settings(engine)
 
 
 def _add_missing_columns(engine: Engine) -> None:
@@ -79,6 +81,51 @@ def _add_missing_columns(engine: Engine) -> None:
         with engine.begin() as connection:
             for ddl in statements:
                 connection.exec_driver_sql(ddl)
+
+
+def _slot_override(row: Any) -> tuple[str, dict[str, Any]]:
+    slot, model_id, temperature, max_tokens = row
+    return f"slot:{slot}", {
+        "model_id": model_id,
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+    }
+
+
+def _model_switch(row: Any) -> tuple[str, dict[str, Any]]:
+    model_id, enabled = row
+    return f"model:{model_id}", {"enabled": bool(enabled)}
+
+
+_LEGACY_SETTINGS = (
+    (
+        "slot_settings",
+        "SELECT slot, model_id, temperature, max_tokens FROM slot_settings",
+        _slot_override,
+    ),
+    ("model_settings", "SELECT model_id, enabled FROM model_settings", _model_switch),
+)
+
+
+def _merge_legacy_settings(engine: Engine) -> None:
+    """Databases made before the M7 cleanup kept Slot overrides and Model switches in tables of
+    their own. Their rows become ``app_settings`` rows (``slot:<slot>``, ``model:<model_id>``)
+    and the tables are dropped; a key that already exists is left alone."""
+    from rampart.models import AppSetting
+
+    inspector = inspect(engine)
+    with engine.begin() as connection:
+        for table, query, convert in _LEGACY_SETTINGS:
+            if not inspector.has_table(table):
+                continue
+            for row in connection.exec_driver_sql(query).all():
+                key, value = convert(row)
+                present = connection.execute(select(AppSetting.key).where(AppSetting.key == key))
+                if present.first() is None:
+                    connection.execute(
+                        insert(AppSetting).values(key=key, value=value, updated_at=utcnow())
+                    )
+            connection.exec_driver_sql(f'DROP TABLE "{table}"')
 
 
 def make_session_factory(engine: Engine) -> sessionmaker[Session]:
