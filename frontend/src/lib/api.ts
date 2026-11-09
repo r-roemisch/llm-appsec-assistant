@@ -462,11 +462,6 @@ export function deleteTarget(id: string): Promise<void> {
 
 // Tools and Reports (M3)
 
-/** The Tools the caller's turns may use (enabled, allowed for the role). */
-export function listTools(): Promise<ToolOut[]> {
-  return request("GET", "/api/tools");
-}
-
 /** The caller's own Reports, newest first. */
 export function listReports(): Promise<ReportOut[]> {
   return request("GET", "/api/reports");

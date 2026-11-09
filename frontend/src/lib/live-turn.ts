@@ -123,10 +123,6 @@ export function subscribeLiveTurns(listener: Listener): () => void {
   };
 }
 
-export function isStreaming(conversationId: string | undefined): boolean {
-  return conversationId ? controllers.has(conversationId) : false;
-}
-
 /** Aborts the request; the server keeps what was received so far. */
 export function stopTurn(conversationId: string): void {
   controllers.get(conversationId)?.abort();

@@ -355,10 +355,9 @@ describe("api client", () => {
     await expect(refused()).rejects.toMatchObject({ status: 403, detail: "an administrator must approve this tool call" });
   });
 
-  it("reads Tools and Reports, downloads by link and deletes with the CSRF token", async () => {
+  it("reads Reports, downloads by link and deletes with the CSRF token", async () => {
     session.set(aliceSession);
     const reads: Array<[() => Promise<unknown>, string]> = [
-      [api.listTools, "/api/tools"],
       [api.listReports, "/api/reports"],
       [() => api.getReport("r 1"), "/api/reports/r%201"],
     ];

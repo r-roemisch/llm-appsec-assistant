@@ -5,7 +5,6 @@
 
 import type {
   ApprovalStatus,
-  Approver,
   CostClass,
   ToolCallOut,
   ToolDecision,
@@ -126,10 +125,6 @@ export function costClassLabel(costClass: CostClass): string {
     case "heavy":
       return "Heavy";
   }
-}
-
-export function approverLabel(approver: Approver): string {
-  return approver === "admin" ? "An administrator" : "The requester";
 }
 
 export function approvalStatusLabel(status: ApprovalStatus): string {

@@ -7,8 +7,6 @@ the answers as displayed), not from a fresh Model call, so a Report shows what a
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime
 from typing import Any
 
 from sqlalchemy import select
@@ -22,16 +20,6 @@ from rampart.profile.service import ProfileService, profile_block
 SECTIONS = ("summary", "findings", "vulnerabilities", "tests", "sources", "conversation")
 MAX_ANSWER_CHARS = 6000
 MAX_REPORT_CHARS = 200_000
-
-
-@dataclass(frozen=True)
-class ReportView:
-    id: str
-    conversation_id: str | None
-    title: str
-    created_at: datetime
-    size: int
-    markdown: str
 
 
 def _cell(text: Any) -> str:

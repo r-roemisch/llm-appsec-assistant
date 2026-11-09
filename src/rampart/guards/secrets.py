@@ -106,10 +106,6 @@ def redact(text: str) -> Redaction:
     return Redaction(text=text, counts=counts)
 
 
-def contains_secret(text: str) -> bool:
-    return any(p.regex.search(text) for p in PATTERNS) or "[REDACTED:" in text
-
-
 def redact_value(value: object) -> object:
     """Redact strings inside JSON-like data (Tool arguments and results)."""
     if isinstance(value, str):

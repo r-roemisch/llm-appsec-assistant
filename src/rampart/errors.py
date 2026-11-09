@@ -15,10 +15,6 @@ class BadRequest(RampartError):
     status_code = 400
 
 
-class Unauthorized(RampartError):
-    status_code = 401
-
-
 class Forbidden(RampartError):
     status_code = 403
 
