@@ -10,9 +10,10 @@ stale or wrong.
 from __future__ import annotations
 
 import asyncio
+import re
 from collections import OrderedDict
 from collections.abc import Callable, Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from rank_bm25 import BM25Plus
 from sqlalchemy import or_, select
@@ -116,11 +117,22 @@ def reciprocal_rank_fusion(rankings: list[list[str]], k: int = RRF_K) -> list[st
     return sorted(scores, key=lambda pid: (-scores[pid], first_seen[pid]))
 
 
+# (M7) Framework identifiers a user may name exactly: MITRE ATLAS techniques, sub-techniques,
+# mitigations and case studies, and OWASP Top 10 for LLM Applications items.
+IDENTIFIER = re.compile(r"\b(AML\.(?:T\d{4}(?:\.\d{3})?|M\d{4}|CS\d{4})|LLM\d{2})\b", re.IGNORECASE)
+
+
+def named_identifiers(query: str) -> list[str]:
+    return list(dict.fromkeys(m.upper() for m in IDENTIFIER.findall(query)))
+
+
 @dataclass
 class _KeywordIndex:
     ids: list[str]
     token_sets: list[frozenset[str]]
     bm25: BM25Plus | None
+    # (M7) the identifier a passage's heading starts with ("AML.T0054", "LLM01"), by passage id
+    heading_ids: dict[str, str] = field(default_factory=dict)
 
 
 class Retriever:
@@ -149,10 +161,20 @@ class Retriever:
         ).all()
         ids = [row[0] for row in rows]
         tokens = [keyword_tokens(index_text(row[1], row[2], row[3])) for row in rows]
+        heading_ids: dict[str, str] = {}
+        for row in rows:
+            # The heading ("AML.T0054: LLM Jailbreak"), else the Source title, where an OWASP
+            # prefix is skipped ("OWASP LLM01:2025 Prompt Injection").
+            for label in (row[2] or "", (row[1] or "").removeprefix("OWASP ")):
+                found = IDENTIFIER.match(label.strip())
+                if found:
+                    heading_ids[row[0]] = found.group(1).upper()
+                    break
         index = _KeywordIndex(
             ids=ids,
             token_sets=[frozenset(t) for t in tokens],
             bm25=BM25Plus(tokens) if ids and any(tokens) else None,
+            heading_ids=heading_ids,
         )
         self._cache[key] = index
         while len(self._cache) > BM25_CACHE_SIZE:
@@ -173,6 +195,21 @@ class Retriever:
         candidates.sort(key=lambda i: (-float(scores[i]), i))
         return [index.ids[i] for i in candidates[:limit]]
 
+    def named_passages(
+        self, db: Session, user_id: int, query: str, types: tuple[str, ...], per_id: int = 2
+    ) -> list[str]:
+        """(M7) Passages whose heading (or Source title) starts with an identifier the query
+        names exactly, in document order, at most ``per_id`` for each identifier. Keyword
+        search alone ranks them below passages that merely mention the identifier."""
+        wanted = named_identifiers(query)
+        if not wanted:
+            return []
+        index = self._keyword_index(db, user_id, types)
+        out: list[str] = []
+        for identifier in wanted:
+            out += [pid for pid in index.ids if index.heading_ids.get(pid) == identifier][:per_id]
+        return out
+
     # --- hybrid search ----------------------------------------------------------------
 
     async def search(
@@ -187,6 +224,7 @@ class Retriever:
         types = tuple(sorted(set(source_types) & set(SOURCE_TYPES)))
         with session_scope(self.session_factory) as db:
             keyword = self.keyword_ranking(db, user_id, query, types, CANDIDATES_PER_LIST)
+            named = self.named_passages(db, user_id, query, types)
         dense: list[str] = []
         usage: EmbeddingBatch | None = None
         error: str | None = None
@@ -208,6 +246,8 @@ class Retriever:
             except Exception as exc:  # degrade to keyword search, never fail the turn
                 error = f"{type(exc).__name__}: {exc}"[:300]
         ranked = reciprocal_rank_fusion([dense, keyword]) if dense else keyword
+        if named:  # a passage about exactly the identifier the user named comes first
+            ranked = named + [pid for pid in ranked if pid not in set(named)]
         with session_scope(self.session_factory) as db:
             visible = load_passages(db, user_id, ranked[: k * 2])
         passages = [visible[pid] for pid in ranked if pid in visible][:k]

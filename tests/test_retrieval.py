@@ -246,3 +246,35 @@ def test_trace_records_route_queries_and_calls(kb_app, settings, grader_script):
     assert metadata["route"]["mode"] == "retrieve" and metadata["queries"] == ["quokka-delimiter"]
     assert metadata["retrieval_mode"] == "bm25" and metadata["cited_passages"] is not None
     assert [c["purpose"] for c in metadata["model_calls"]] == ["route", "grade", "generate"]
+
+
+def test_a_named_framework_identifier_ranks_its_own_passage_first(app):
+    """(M7) Asking about "AML.T0054" or "LLM01" puts the passages headed by exactly that
+    identifier first; keyword search alone ranks passages that merely mention it higher."""
+    import asyncio
+
+    from rampart.knowledge.retrieval import bump_version, named_identifiers
+    from rampart.models import Passage, Source
+
+    assert named_identifiers("What is aml.t0054 and LLM01, and AML.T0051.001?") == ["AML.T0054", "LLM01", "AML.T0051.001"]
+    with session_scope(app.state.session_factory) as db:
+        atlas = Source(source_type="curated", title="MITRE ATLAS techniques", origin="https://atlas.example", digest="a")
+        owasp = Source(source_type="curated", title="OWASP LLM01:2025 Prompt Injection", origin="https://owasp.example", digest="b")
+        db.add_all([atlas, owasp])
+        db.flush()
+        noise = "AML.T0054 AML.T0054 jailbreak MITRE ATLAS related technique AML.T0054 mentioned again"
+        db.add_all([
+            Passage(source_id=atlas.id, ordinal=0, heading="AML.T0061: LLM Prompt Self-Replication", text=noise, provenance="source"),
+            Passage(source_id=atlas.id, ordinal=1, heading="AML.T0054: LLM Jailbreak", text="Adversaries may induce a model to ignore its safety behavior.", provenance="source"),
+            Passage(source_id=owasp.id, ordinal=0, heading="Description", text="Prompt injection alters the model's behavior.", provenance="source"),
+        ])
+        bump_version(db)
+    retriever = app.state.knowledge.retriever
+
+    async def first(query: str) -> str:
+        result = await retriever.search(user_id=1, query=query, source_types=["curated"], k=3, embedder=None)
+        return result.passages[0].heading or ""
+
+    assert asyncio.run(first("What is AML.T0054 in MITRE ATLAS?")) == "AML.T0054: LLM Jailbreak"
+    assert asyncio.run(first("Explain LLM01")) == "Description"
+    assert asyncio.run(first("jailbreak technique mentioned again")).startswith("AML.T0061")  # no identifier: unchanged
