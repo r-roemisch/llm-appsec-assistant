@@ -1,0 +1,1180 @@
+{
+  "models": {
+    "chat": "openai/gpt-6-luna",
+    "grader": "openai/gpt-6-luna",
+    "judge": "openai/gpt-6.1-sol"
+  },
+  "threshold": 0.7,
+  "metrics": {
+    "faithfulness": {
+      "mean": 1.0,
+      "passed": 30,
+      "scored": 30,
+      "skipped": 0,
+      "errors": 0,
+      "total": 30
+    },
+    "answer_relevancy": {
+      "mean": 1.0,
+      "passed": 30,
+      "scored": 30,
+      "skipped": 0,
+      "errors": 0,
+      "total": 30
+    },
+    "contextual_precision": {
+      "mean": 1.0,
+      "passed": 30,
+      "scored": 30,
+      "skipped": 0,
+      "errors": 0,
+      "total": 30
+    },
+    "contextual_recall": {
+      "mean": 0.8167,
+      "passed": 23,
+      "scored": 30,
+      "skipped": 0,
+      "errors": 0,
+      "total": 30
+    }
+  },
+  "cases": [
+    {
+      "case_id": "qa-001",
+      "source": "authored",
+      "question": "What is LLM01:2025 Prompt Injection in the OWASP Top 10 for LLM Applications?",
+      "status": "done",
+      "answer": "**LLM01:2025 Prompt Injection** is the OWASP Top 10 for LLM Applications category for inputs that alter an LLM’s behavior in unintended ways. It can be **direct**, through a user’s prompt, or **indirect**, through external content such as a webpage or file that the model processes. [2]\n\nDepending on the application and the model’s access to tools or data, prompt injection can lead to sensitive information disclosure, manipulated or incorrect outputs, unauthorized use of functions, or actions in connected systems. [2]",
+      "tools_called": [],
+      "expected_tools": [],
+      "context_count": 2,
+      "turn_error": null,
+      "metrics": {
+        "faithfulness": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the actual output contains no contradictions and is fully consistent with the retrieval context.",
+          "error": null
+        },
+        "answer_relevancy": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the response stays fully focused on explaining LLM01:2025 Prompt Injection in the OWASP Top 10 for LLM Applications, with no irrelevant content. Excellent relevance!",
+          "error": null
+        },
+        "contextual_precision": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because both nodes in the retrieval contexts are relevant, leaving no irrelevant nodes to rank lower. The first node illustrates attacks using 'ignore previous guidelines' and 'hidden instructions'; the second directly defines prompt injection as input that 'alters the behavior of the model in unintended or unexpected ways' and explains its impacts. This earns the maximum score.",
+          "error": null
+        },
+        "contextual_recall": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because sentence 1 is directly supported by node 2 in retrieval context, which defines unintended behavioral changes from user prompts. Sentence 2 is supported by nodes 1 and 2 through hidden instructions, guideline violations, harmful outputs, unauthorized access, and manipulation of critical decisions. Both sentences are well grounded.",
+          "error": null
+        }
+      }
+    },
+    {
+      "case_id": "qa-002",
+      "source": "authored",
+      "question": "What is the difference between direct and indirect prompt injection according to OWASP?",
+      "status": "done",
+      "answer": "According to OWASP, **direct prompt injection** comes from the user’s prompt itself and can intentionally or unintentionally alter the model’s behavior. **Indirect prompt injection** comes from external content—such as a website or file—that the model processes and that alters its behavior [1].",
+      "tools_called": [],
+      "expected_tools": [],
+      "context_count": 2,
+      "turn_error": null,
+      "metrics": {
+        "faithfulness": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the actual output is fully consistent with the retrieval context, with no contradictions. Great alignment!",
+          "error": null
+        },
+        "answer_relevancy": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the response stays focused on the difference between direct and indirect prompt injection according to OWASP, with no irrelevant statements. Excellent relevance!",
+          "error": null
+        },
+        "contextual_precision": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because both nodes in the retrieval contexts are relevant and optimally ranked. The first node defines direct injection as when 'a user's prompt input directly alters the behavior of the model' and indirect injection as coming from 'external sources, such as websites or files.' The second node reinforces the distinction with examples of 'a prompt into a customer support chatbot'…",
+          "error": null
+        },
+        "contextual_recall": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because node 1 in retrieval context fully supports both sentences: sentence 1 defines direct injection through intentional or unintentional user input, and sentence 2 defines indirect injection through external content such as websites or files. Both definitions are accurately grounded.",
+          "error": null
+        }
+      }
+    },
+    {
+      "case_id": "qa-003",
+      "source": "authored",
+      "question": "Which mitigation strategies does OWASP list for prompt injection?",
+      "status": "done",
+      "answer": "OWASP lists these mitigation strategies for prompt injection:\n\n- Constrain model behavior with clear instructions about its role, capabilities, and limits.\n- Define and validate expected output formats.\n- Filter inputs and outputs for disallowed or potentially malicious content.\n- Enforce privilege controls and least-privilege access.\n- Require human approval for high-risk actions.\n- Segregate and identify external, untrusted content.\n- Conduct adversarial testing and attack simulations. [1]",
+      "tools_called": [],
+      "expected_tools": [],
+      "context_count": 1,
+      "turn_error": null,
+      "metrics": {
+        "faithfulness": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the actual output is fully faithful to the retrieval context, with no contradictions. Great consistency!",
+          "error": null
+        },
+        "answer_relevancy": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the response stays focused on OWASP’s mitigation strategies for prompt injection, with no irrelevant statements. Great relevance!",
+          "error": null
+        },
+        "contextual_precision": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the first node in the retrieval contexts directly lists all seven OWASP mitigation strategies, including 'Constrain model behavior' and 'Conduct adversarial testing and attack simulations.' It achieves perfect ranking precision, with no irrelevant nodes ranked above relevant material.",
+          "error": null
+        },
+        "contextual_recall": {
+          "score": 0.5,
+          "passed": false,
+          "reason": "The score is 0.50 because node 1 in retrieval context supports all seven measures in sentence 1. It also supports the uncertainty about fool-proof prevention in sentence 2, but does not attribute that statement to OWASP.",
+          "error": null
+        }
+      }
+    },
+    {
+      "case_id": "qa-004",
+      "source": "authored",
+      "question": "What are the root causes of Excessive Agency (LLM06:2025)?",
+      "status": "done",
+      "answer": "The root causes of Excessive Agency are **excessive functionality, excessive permissions, and excessive autonomy**. [2]",
+      "tools_called": [],
+      "expected_tools": [],
+      "context_count": 3,
+      "turn_error": null,
+      "metrics": {
+        "faithfulness": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the actual output is fully faithful to the retrieval context, with no contradictions. Great alignment!",
+          "error": null
+        },
+        "answer_relevancy": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the response stays fully focused on the root causes of Excessive Agency (LLM06:2025), with no irrelevant statements. Great relevance!",
+          "error": null
+        },
+        "contextual_precision": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because all three nodes in the retrieval contexts are relevant, with no irrelevant nodes ranked above them. The first node explains 'Excessive Functionality', 'Excessive Permissions', and 'Excessive Autonomy'; the second node directly identifies these as the root causes; and the third node reinforces them through mitigations such as 'eliminating excessive functionality'. This is…",
+          "error": null
+        },
+        "contextual_recall": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because node 2 in retrieval context explicitly supports sentence 1, identifying excessive functionality, excessive permissions, and excessive autonomy as typical root causes of Excessive Agency. Full coverage!",
+          "error": null
+        }
+      }
+    },
+    {
+      "case_id": "qa-005",
+      "source": "authored",
+      "question": "How does OWASP recommend preventing Excessive Agency?",
+      "status": "done",
+      "answer": "OWASP recommends preventing Excessive Agency by limiting what an LLM agent can do:\n\n- **Minimize extensions and their functionality:** expose only the tools and operations needed; avoid open-ended tools such as shell execution or unrestricted URL fetching. [3]\n- **Minimize permissions:** grant extensions only the access their task requires, and act in the user’s context with the least privilege. [4]\n- **Require human approval** before high-impact actions. [4]\n- **Enforce authorization in downstream systems:** validate every request against security policies rather than relying on the model to decide what is allowed. [4]\n- **Sanitize LLM inputs and outputs.** [4]\n\nLogging, monitoring, and rate limiting can help limit damage, but OWASP describes them as mitigations rather than prevention. [1]",
+      "tools_called": [],
+      "expected_tools": [],
+      "context_count": 4,
+      "turn_error": null,
+      "metrics": {
+        "faithfulness": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the actual output is fully consistent with the retrieval context, with no contradictions. Great alignment!",
+          "error": null
+        },
+        "answer_relevancy": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the response stays fully focused on OWASP’s recommendations for preventing Excessive Agency, with no irrelevant statements. Great relevance!",
+          "error": null
+        },
+        "contextual_precision": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because all four nodes in the retrieval contexts are relevant, with no irrelevant nodes to rank lower. The first node supports 'input sanitisation'; the second gives concrete safeguards such as 'a read-only scope' and 'requiring the user to manually review and hit send'; the third recommends limiting extensions to 'only the minimum necessary'; and the fourth covers permissions, …",
+          "error": null
+        },
+        "contextual_recall": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because sentence 1 is fully supported by nodes 3 and 4 in retrieval context: node 3 covers minimizing extensions and their functionality and avoiding open-ended extensions, while node 4 covers least privilege, user-context execution, human approval, downstream authorization, and input/output sanitization. All recommendations are well grounded.",
+          "error": null
+        }
+      }
+    },
+    {
+      "case_id": "qa-006",
+      "source": "authored",
+      "question": "What does LLM02:2025 Sensitive Information Disclosure cover?",
+      "status": "done",
+      "answer": "LLM02:2025 covers the risk that an LLM or its application discloses sensitive information—such as PII, financial or health records, credentials, confidential business data, legal documents, or proprietary model details. [1]\n\nExamples include exposing one user’s data to another, revealing proprietary algorithms or training data, and leaking business information. Such disclosure can result from inadequate data sanitization, data included in training, or prompt injection. System-prompt restrictions may help, but can be bypassed, so they are not sufficient on their own. [1][2][3]",
+      "tools_called": [],
+      "expected_tools": [],
+      "context_count": 3,
+      "turn_error": null,
+      "metrics": {
+        "faithfulness": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the actual output is fully consistent with the retrieval context, with no contradictions found.",
+          "error": null
+        },
+        "answer_relevancy": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the response stays fully focused on what LLM02:2025 Sensitive Information Disclosure covers, with no irrelevant statements. Great relevance!",
+          "error": null
+        },
+        "contextual_precision": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because all nodes in the retrieval contexts are relevant and well ordered: the first node directly defines the risk as 'exposing sensitive data, proprietary algorithms, or confidential details through their output'; the second supports specific categories, including 'Personal identifiable information (PII) may be disclosed'; and the third adds concrete examples such as 'a respon…",
+          "error": null
+        },
+        "contextual_recall": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because node 1 in retrieval context fully supports sentence 1’s sensitive-data exposure risk and listed data types, as well as sentence 2’s consequences of unauthorized access, privacy violations, and intellectual property breaches. Both sentences are fully grounded.",
+          "error": null
+        }
+      }
+    },
+    {
+      "case_id": "qa-007",
+      "source": "authored",
+      "question": "What kinds of risks does LLM03:2025 Supply Chain include?",
+      "status": "done",
+      "answer": "LLM03:2025 Supply Chain covers risks to the integrity and security of models, data, and deployment platforms from external components and suppliers. These include:\n\n- Vulnerable or outdated software packages and models.\n- Licensing and data-privacy risks, including unclear terms that may allow application data to be used for model training.\n- Tampered, poisoned, or otherwise vulnerable pre-trained models, datasets, and LoRA adapters.\n- Weak model provenance, such as counterfeit models or compromised supplier accounts.\n- Risks from collaborative model merging, conversion, and other shared development services.\n- On-device model risks, including compromised manufacturing, device OS or firmware, and repackaged apps.\n- Cloud infrastructure risks, such as attacks on shared environments or misuse of cloud instances. [1][2][3][4][5]",
+      "tools_called": [],
+      "expected_tools": [],
+      "context_count": 5,
+      "turn_error": null,
+      "metrics": {
+        "faithfulness": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the actual output contains no contradictions and is fully consistent with the retrieval context.",
+          "error": null
+        },
+        "answer_relevancy": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the response stays fully focused on the risks included in LLM03:2025 Supply Chain, with no irrelevant content. Great relevance!",
+          "error": null
+        },
+        "contextual_precision": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because all five nodes in the retrieval contexts are relevant, leaving no irrelevant nodes to rank lower. The first node establishes risks to 'the integrity of training data, models, and deployment platforms,' and the second lists key categories, including 'Licensing Risks' and 'Weak Model Provenance.' The third through fifth nodes add supporting examples of malicious adapters, …",
+          "error": null
+        },
+        "contextual_recall": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because node 1 in retrieval context fully supports sentence 1’s integrity risks, scope, and tampering or poisoning threats, while node 2 covers all examples in sentence 2. Both sentences are fully grounded.",
+          "error": null
+        }
+      }
+    },
+    {
+      "case_id": "qa-008",
+      "source": "authored",
+      "question": "What is data and model poisoning (LLM04:2025)?",
+      "status": "done",
+      "answer": "Data and model poisoning (OWASP LLM04:2025) is the manipulation of training, fine-tuning, embedding, or other model-related data to introduce vulnerabilities, backdoors, or bias. It is an integrity attack that can degrade performance or cause harmful, biased, or inaccurate outputs—especially when external data is unverified. A poisoned model may also behave normally until a hidden trigger activates a backdoor. [1]\n\nRisks can arise from falsified or toxic training data, unsafe data ingestion, or malicious models distributed through shared repositories; the latter may also contain malware that executes when the model is loaded. [1][2]",
+      "tools_called": [],
+      "expected_tools": [],
+      "context_count": 3,
+      "turn_error": null,
+      "metrics": {
+        "faithfulness": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the actual output is fully faithful to the retrieval context, with no contradictions. Great alignment!",
+          "error": null
+        },
+        "answer_relevancy": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the response stays fully focused on explaining data and model poisoning (LLM04:2025), with no irrelevant statements. Great relevance!",
+          "error": null
+        },
+        "contextual_precision": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because all three nodes in the retrieval contexts are relevant and appropriately ranked. The first node directly defines poisoning of 'pre-training, fine-tuning, or embedding data' to introduce 'vulnerabilities, backdoors, or biases'; the second and third nodes reinforce this with 'manipulating training data' and 'harmful data during training, leading to biased outputs.' No irre…",
+          "error": null
+        },
+        "contextual_recall": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because node 1 in retrieval context fully supports both sentences: sentence 1 defines data poisoning and sentence 2 describes its security, performance, ethical, and downstream impacts. Both are accurately grounded.",
+          "error": null
+        }
+      }
+    },
+    {
+      "case_id": "qa-009",
+      "source": "authored",
+      "question": "Give examples of improper output handling (LLM05:2025).",
+      "status": "done",
+      "answer": "Examples of improper output handling (LLM05:2025) include:\n\n- Passing LLM output directly to a shell, `exec`, or `eval`, which can enable code execution.\n- Rendering generated JavaScript or Markdown as executable or unsafe browser content, leading to XSS.\n- Executing generated SQL without parameterization or review, potentially causing SQL injection or destructive database changes.\n- Using generated text in file paths without sanitization, enabling path traversal.\n- Inserting generated content into email templates without escaping, which can enable phishing or, in some clients, XSS.\n- Passing an LLM’s response directly to a privileged extension or tool without validation, allowing unintended administrative actions.\n- Letting a summarizer send sensitive information to an attacker-controlled destination based on injected instructions, without checking the output or its destination. [1][2]",
+      "tools_called": [],
+      "expected_tools": [],
+      "context_count": 2,
+      "turn_error": null,
+      "metrics": {
+        "faithfulness": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the actual output aligns fully with the retrieval context, with no contradictions identified.",
+          "error": null
+        },
+        "answer_relevancy": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the response stays focused on examples of improper output handling (LLM05:2025), with no irrelevant statements. Great relevance!",
+          "error": null
+        },
+        "contextual_precision": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because both nodes in the retrieval contexts are directly relevant, with no irrelevant nodes ranked above them. The first node covers all five examples, including shell execution via 'exec or eval,' SQL 'without proper parameterization,' and email templates 'without proper escaping.' The second node reinforces these with concrete scenarios, including an 'unsanitized JavaScript p…",
+          "error": null
+        },
+        "contextual_recall": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because node 1 in retrieval context directly supports all five risks in sentence 1: remote code execution, XSS, SQL injection, path traversal, and phishing. Excellent coverage!",
+          "error": null
+        }
+      }
+    },
+    {
+      "case_id": "qa-010",
+      "source": "authored",
+      "question": "Why should a system prompt not be treated as a secret (LLM07:2025)?",
+      "status": "done",
+      "answer": "A system prompt should not be treated as a secret because users may infer its rules by interacting with the application, and it may be exposed. Its wording is not a dependable security boundary. The real risk is what the prompt contains or what the application relies on it to enforce: credentials, sensitive details, or authorization decisions. Keep secrets out of prompts and enforce permissions and other critical controls in deterministic systems outside the LLM. [1][3]",
+      "tools_called": [],
+      "expected_tools": [],
+      "context_count": 5,
+      "turn_error": null,
+      "metrics": {
+        "faithfulness": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the actual output is fully consistent with the retrieval context, with no contradictions identified.",
+          "error": null
+        },
+        "answer_relevancy": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the response directly addresses why a system prompt should not be treated as a secret under LLM07:2025, with no irrelevant statements. Great focus!",
+          "error": null
+        },
+        "contextual_precision": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because all five nodes in the retrieval contexts are relevant, with no irrelevant nodes to rank lower. The first node directly states that 'the system prompt should not be considered a secret, nor should it be used as a security control.' The second through fifth nodes reinforce this with privilege-escalation risks, the warning that prompt secrecy 'is not a guarantee,' sensitive…",
+          "error": null
+        },
+        "contextual_recall": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because both sentences are fully grounded: nodes 5 and 1 in retrieval context support sentence 1’s extraction risk and warning against treating prompts as secrets or security controls; nodes 1 and 3 support sentence 2’s exclusion of sensitive data and enforcement of authorization outside the LLM. Excellent coverage!",
+          "error": null
+        }
+      }
+    },
+    {
+      "case_id": "qa-011",
+      "source": "authored",
+      "question": "What does OWASP recommend against vector and embedding weaknesses (LLM08:2025)?",
+      "status": "done",
+      "answer": "OWASP recommends the following mitigations for vector and embedding weaknesses (LLM08:2025):\n\n- **Enforce fine-grained, permission-aware access controls** and logically partition vector data so users or groups cannot retrieve one another’s information. [1][2]\n- **Validate and authenticate knowledge sources** before ingestion; inspect documents for hidden content or data poisoning, and accept data only from trusted, verified sources. [1][2]\n- **Classify and review data** when combining sources, so access levels and data boundaries remain clear. [2]\n- **Monitor and log retrieval activity** with detailed, immutable logs to help detect suspicious behavior. [2]\n- **Evaluate RAG’s effect on model behavior** and adjust augmentation to preserve desired qualities, such as empathy. [3]",
+      "tools_called": [],
+      "expected_tools": [],
+      "context_count": 3,
+      "turn_error": null,
+      "metrics": {
+        "faithfulness": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the actual output is fully consistent with the retrieval context, with no contradictions. Great alignment!",
+          "error": null
+        },
+        "answer_relevancy": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the response stays fully focused on OWASP’s recommendations for vector and embedding weaknesses (LLM08:2025), with no irrelevant statements. Excellent relevance!",
+          "error": null
+        },
+        "contextual_precision": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because both relevant nodes in the retrieval contexts rank above the irrelevant third node. The first node recommends that 'all input documents must be validated' and a 'permission-aware vector database' implemented; the second adds 'strict logical and access partitioning' and 'detailed immutable logs of retrieval activities.' The third node’s advice that model behavior 'should …",
+          "error": null
+        },
+        "contextual_recall": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because node 2 in retrieval context fully supports sentence 1, covering permission-aware access controls, dataset partitioning, data validation and source authentication, dataset review and classification, and retrieval monitoring and logging. All listed measures are well grounded.",
+          "error": null
+        }
+      }
+    },
+    {
+      "case_id": "qa-012",
+      "source": "authored",
+      "question": "What causes misinformation from LLMs according to OWASP LLM09:2025?",
+      "status": "done",
+      "answer": "According to OWASP LLM09:2025, misinformation can result from hallucinations, biases in training data, and incomplete information. Hallucinations occur when a model fills gaps with plausible-sounding but fabricated content. User overreliance can worsen the impact by leading people to trust and act on inaccurate outputs without verification. [1]",
+      "tools_called": [],
+      "expected_tools": [],
+      "context_count": 1,
+      "turn_error": null,
+      "metrics": {
+        "faithfulness": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the actual output is fully faithful to the retrieval context, with no contradictions. Great alignment!",
+          "error": null
+        },
+        "answer_relevancy": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the response stays fully focused on the causes of misinformation from LLMs according to OWASP LLM09:2025, with no irrelevant statements. Great focus!",
+          "error": null
+        },
+        "contextual_precision": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the first node in the retrieval contexts directly explains the causes: LLMs 'fill gaps in their training data using statistical patterns,' producing content that 'seems accurate but is fabricated,' with 'biases introduced by the training data and incomplete information' also contributing. It correctly distinguishes user overreliance as something that 'exacerbates the imp…",
+          "error": null
+        },
+        "contextual_recall": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because node 1 in retrieval context fully supports both sentences: sentence 1 explains hallucination through statistical gap-filling that produces fabricated content, and sentence 2 identifies training-data bias, incomplete information, and user overreliance. Both are clearly grounded!",
+          "error": null
+        }
+      }
+    },
+    {
+      "case_id": "qa-013",
+      "source": "authored",
+      "question": "What is Denial of Wallet in the OWASP Top 10 for LLM Applications?",
+      "status": "done",
+      "answer": "Denial of Wallet (DoW) is an attack in which someone triggers excessive use of a pay-per-use AI service, driving up costs for the provider—potentially to an unsustainable level. [1][2]",
+      "tools_called": [],
+      "expected_tools": [],
+      "context_count": 2,
+      "turn_error": null,
+      "metrics": {
+        "faithfulness": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the actual output is fully consistent with the retrieval context, with no contradictions. Great alignment!",
+          "error": null
+        },
+        "answer_relevancy": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the response stays focused on explaining Denial of Wallet in the OWASP Top 10 for LLM Applications, with no irrelevant statements. Great focus!",
+          "error": null
+        },
+        "contextual_precision": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because both nodes in the retrieval contexts directly explain Denial of Wallet: the first node describes 'excessive operations' exploiting the 'pay-per-use model,' while the second describes 'a high volume of operations' causing 'unsustainable financial burdens on the provider.' With no irrelevant nodes, the ranking earns the maximum score.",
+          "error": null
+        },
+        "contextual_recall": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because sentence 1’s description of Denial of Wallet is directly supported by node 2 in retrieval context and reinforced by node 1, clearly capturing high-volume operations that exploit usage-based pricing to impose unsustainable provider costs.",
+          "error": null
+        }
+      }
+    },
+    {
+      "case_id": "qa-014",
+      "source": "authored",
+      "question": "How can an LLM application prevent unbounded consumption (LLM10:2025)?",
+      "status": "done",
+      "answer": "To prevent **unbounded consumption (LLM10:2025)**, combine limits, monitoring, and resilience controls:\n\n- **Validate input size** and reject requests that exceed reasonable limits.\n- **Apply rate limits and per-user quotas** to constrain request volume.\n- **Manage resource use** dynamically; set timeouts and throttle expensive operations.\n- **Limit queued and total actions**, and use load balancing and scaling to handle demand.\n- **Sandbox the LLM’s access** to networks, internal services, and APIs.\n- **Monitor and log resource use** to detect unusual consumption patterns.\n- **Degrade gracefully** under heavy load, preserving partial functionality where possible.\n- **Restrict exposure of logits and log probabilities** to only what is necessary. [1]\n\nThese controls help limit excessive requests, processing, and resource access while keeping the application more resilient under load. [1]",
+      "tools_called": [],
+      "expected_tools": [],
+      "context_count": 1,
+      "turn_error": null,
+      "metrics": {
+        "faithfulness": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the actual output is fully faithful to the retrieval context, with no contradictions. Great alignment!",
+          "error": null
+        },
+        "answer_relevancy": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the response stays fully focused on preventing unbounded consumption (LLM10:2025), with no irrelevant statements. Excellent relevance!",
+          "error": null
+        },
+        "contextual_precision": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the first node in the retrieval contexts directly addresses preventing unbounded consumption through 'strict input validation,' 'reasonable size limits,' restricted exposure of 'logit_bias' and 'logprobs,' 'rate limiting and user quotas,' resource allocation, timeouts, throttling, and monitoring. This is the maximum score: the relevant node ranks first, with no irrelevan…",
+          "error": null
+        },
+        "contextual_recall": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because node 1 in retrieval context explicitly supports every measure listed in sentence 1, providing complete coverage.",
+          "error": null
+        }
+      }
+    },
+    {
+      "case_id": "qa-015",
+      "source": "authored",
+      "question": "Which MITRE ATLAS technique covers LLM prompt injection, and what are its sub-techniques?",
+      "status": "done",
+      "answer": "MITRE ATLAS technique **AML.T0051 — LLM Prompt Injection** has three sub-techniques:\n\n- **AML.T0051.000 — Direct**\n- **AML.T0051.001 — Indirect**\n- **AML.T0051.002 — Triggered** [1][2][3]",
+      "tools_called": [],
+      "expected_tools": [],
+      "context_count": 4,
+      "turn_error": null,
+      "metrics": {
+        "faithfulness": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the actual output is fully consistent with the retrieval context, with no contradictions identified.",
+          "error": null
+        },
+        "answer_relevancy": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the response directly addresses the MITRE ATLAS technique for LLM prompt injection and its sub-techniques, with no irrelevant content. Clear and focused!",
+          "error": null
+        },
+        "contextual_precision": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because all four nodes in the retrieval contexts are relevant, with no irrelevant nodes to rank lower. The first and second nodes identify 'AML.T0051 LLM Prompt Injection' and its direct and indirect sub-techniques; the third corroborates the parent with 'Sub-technique of AML.T0051 LLM Prompt Injection'; and the fourth explicitly confirms 'AML.T0051.000 - LLM Prompt Injection: D…",
+          "error": null
+        },
+        "contextual_recall": {
+          "score": 0.5,
+          "passed": false,
+          "reason": "The score is 0.50 because sentence 1’s technique name is supported by nodes 1–3 in retrieval context, but its Execution tactic classification is not established. Sentence 2 is supported by node 4’s sub-technique identifiers and names, with nodes 1–2 providing the Direct and Indirect definitions.",
+          "error": null
+        }
+      }
+    },
+    {
+      "case_id": "qa-016",
+      "source": "authored",
+      "question": "What is AML.T0054 in MITRE ATLAS?",
+      "status": "done",
+      "answer": "AML.T0054 is MITRE ATLAS’s **LLM Jailbreak Injection: Direct** technique. [1]",
+      "tools_called": [],
+      "expected_tools": [],
+      "context_count": 2,
+      "turn_error": null,
+      "metrics": {
+        "faithfulness": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the actual output is fully consistent with the retrieval context, with no contradictions identified.",
+          "error": null
+        },
+        "answer_relevancy": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the response directly addresses what AML.T0054 is in MITRE ATLAS without including irrelevant information. Clear and focused!",
+          "error": null
+        },
+        "contextual_precision": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because both nodes in the retrieval contexts are relevant: the first links 'AML.T0054 - LLM Jailbreak Injection: Direct' to MITRE ATLAS, and the second explicitly identifies 'LLM Jailbreak (AML.T0054)'. No irrelevant nodes disrupt the ranking, so precision is at its maximum, even though behavioral details are limited.",
+          "error": null
+        },
+        "contextual_recall": {
+          "score": 0.0,
+          "passed": false,
+          "reason": "The score is 0.00 because nodes 1 and 2 in retrieval context name LLM Jailbreak but do not support its definition in sentence 1 or its Privilege Escalation and Defense Evasion tactics in sentence 2. Node 2 instead lists Persistence for a self-replicating prompt technique.",
+          "error": null
+        }
+      }
+    },
+    {
+      "case_id": "qa-017",
+      "source": "authored",
+      "question": "How does MITRE ATLAS describe system prompt extraction?",
+      "status": "done",
+      "answer": "MITRE ATLAS describes system prompt extraction as an attempt to make an LLM reveal its system prompt—often through prompt injection—or to obtain it from a configuration file. The prompt may be valuable intellectual property, and learning its instructions can expose the system’s capabilities and help attackers craft prompts to circumvent guardrails. [2][3][4]",
+      "tools_called": [],
+      "expected_tools": [],
+      "context_count": 4,
+      "turn_error": null,
+      "metrics": {
+        "faithfulness": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the actual output is fully consistent with the retrieval context, with no contradictions. Great alignment!",
+          "error": null
+        },
+        "answer_relevancy": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the response stays fully focused on how MITRE ATLAS describes system prompt extraction, with no irrelevant statements. Great topical focus!",
+          "error": null
+        },
+        "contextual_precision": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because all four nodes in the retrieval contexts are relevant, with no irrelevant nodes to rank lower. The first node provides context on 'Meta Prompt Extraction,' while the second directly explains using 'prompt injection to induce the model to reveal its own system prompt.' The third and fourth add supporting context about discovering system instructions and extracting 'the fu…",
+          "error": null
+        },
+        "contextual_recall": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because node 2 in retrieval context fully supports sentence 1, identifying AML.T0056 under Exfiltration and describing prompt injection used to reveal an LLM’s system prompt.",
+          "error": null
+        }
+      }
+    },
+    {
+      "case_id": "qa-018",
+      "source": "authored",
+      "question": "What is AML.T0057 LLM Data Leakage in MITRE ATLAS?",
+      "status": "done",
+      "answer": "AML.T0057, **LLM Data Leakage**, describes adversaries crafting prompts to make an LLM disclose sensitive information—such as private user data or proprietary information. That information may come from training data, connected data sources, or other users’ data. MITRE ATLAS classifies it under the **Exfiltration** tactic. [1]",
+      "tools_called": [],
+      "expected_tools": [],
+      "context_count": 1,
+      "turn_error": null,
+      "metrics": {
+        "faithfulness": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the actual output is fully consistent with the retrieval context, with no contradictions. Great work!",
+          "error": null
+        },
+        "answer_relevancy": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the response stays fully relevant to explaining AML.T0057 LLM Data Leakage in MITRE ATLAS, with no irrelevant statements. Great focus!",
+          "error": null
+        },
+        "contextual_precision": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the first node in the retrieval contexts directly defines AML.T0057: adversaries 'craft prompts that induce the LLM to leak sensitive information,' including 'private user data or proprietary information,' and identifies its tactic as 'Exfiltration (AML.TA0010).' This is a fully relevant top-ranked result with no irrelevant nodes, earning the maximum score.",
+          "error": null
+        },
+        "contextual_recall": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because sentence 1 is fully supported by node 1 in retrieval context, which identifies Exfiltration and describes crafted prompts inducing an LLM to leak private user data or proprietary information. Excellent alignment!",
+          "error": null
+        }
+      }
+    },
+    {
+      "case_id": "qa-019",
+      "source": "authored",
+      "question": "What does the MITRE ATLAS technique AML.T0053 cover?",
+      "status": "done",
+      "answer": "AML.T0053 covers **AI Agent Tool Invocation**. The passage identifies it as an action a poisoned AI agent tool may perform [1].",
+      "tools_called": [],
+      "expected_tools": [],
+      "context_count": 1,
+      "turn_error": null,
+      "metrics": {
+        "faithfulness": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the actual output is fully faithful to the retrieval context, with no contradictions identified.",
+          "error": null
+        },
+        "answer_relevancy": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the response stays focused on explaining what MITRE ATLAS technique AML.T0053 covers, with no irrelevant statements. Full marks!",
+          "error": null
+        },
+        "contextual_precision": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the first node in the retrieval contexts directly identifies AML.T0053 as 'AI Agent Tool Invocation' and notes that a poisoned tool may perform it. This relevant node is ranked first, with no irrelevant nodes ahead of it—a perfect ranking, even though it does not provide the technique’s full definition or tactics.",
+          "error": null
+        },
+        "contextual_recall": {
+          "score": 0.0,
+          "passed": false,
+          "reason": "The score is 0.00 because node 1 in retrieval context names AI Agent Tool Invocation and mentions remote tools but does not support sentence 1’s description of adversaries invoking tools through agent access. It also does not identify Execution and Privilege Escalation as the technique’s tactics, as stated in sentence 2.",
+          "error": null
+        }
+      }
+    },
+    {
+      "case_id": "qa-020",
+      "source": "authored",
+      "question": "What is LLM Prompt Self-Replication in MITRE ATLAS?",
+      "status": "done",
+      "answer": "In MITRE ATLAS, **LLM Prompt Self-Replication (AML.T0061)** is an attack technique where a crafted prompt injection causes an LLM to reproduce the prompt in its output. That output can then carry the malicious prompt to other LLMs or persist in a system, often alongside instructions for a jailbreak or data leakage. [1]",
+      "tools_called": [],
+      "expected_tools": [],
+      "context_count": 2,
+      "turn_error": null,
+      "metrics": {
+        "faithfulness": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the actual output is fully faithful to the retrieval context, with no contradictions. Great alignment!",
+          "error": null
+        },
+        "answer_relevancy": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the response stays fully focused on explaining LLM Prompt Self-Replication in MITRE ATLAS, with no irrelevant statements. Great focus!",
+          "error": null
+        },
+        "contextual_precision": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because both nodes in the retrieval contexts are directly relevant and correctly prioritized. The first node defines self-replication as causing an LLM to 'replicate the prompt as part of its output,' while the second node explicitly identifies 'Persistence, AML.T0061 LLM Prompt Self-Replication' and explains its propagation. There are no irrelevant nodes, so the ranking achieve…",
+          "error": null
+        },
+        "contextual_recall": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because sentence 1 is fully supported by node 1 in retrieval context, which identifies AML.T0061 as a Persistence technique and describes an AML.T0051 prompt injection that replicates through LLM output to persist and spread.",
+          "error": null
+        }
+      }
+    },
+    {
+      "case_id": "qa-021",
+      "source": "authored",
+      "question": "What are the four functions of the NIST AI RMF Core?",
+      "status": "done",
+      "answer": "The four functions are **GOVERN, MAP, MEASURE, and MANAGE**. [1][2]",
+      "tools_called": [],
+      "expected_tools": [],
+      "context_count": 2,
+      "turn_error": null,
+      "metrics": {
+        "faithfulness": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the actual output aligns with the retrieval context, with no contradictions identified.",
+          "error": null
+        },
+        "answer_relevancy": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The response stays fully focused on identifying the four functions of the NIST AI RMF Core, with no irrelevant content. Excellent relevance!",
+          "error": null
+        },
+        "contextual_precision": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because both nodes in the retrieval contexts directly answer the question: the first node states 'the Core is composed of four functions: GOVERN, MAP, MEASURE, and MANAGE,' and the second node confirms 'These functions – GOVERN, MAP, MEASURE, and MANAGE.' No irrelevant nodes disrupt the ranking, so the score is already the highest possible.",
+          "error": null
+        },
+        "contextual_recall": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because sentence 1 is fully supported by nodes 1 and 2 in retrieval context, which explicitly list GOVERN, MAP, MEASURE, and MANAGE as the four Core functions.",
+          "error": null
+        }
+      }
+    },
+    {
+      "case_id": "qa-022",
+      "source": "authored",
+      "question": "Which characteristics of trustworthy AI does the NIST AI RMF list?",
+      "status": "done",
+      "answer": "The NIST AI RMF lists these characteristics of trustworthy AI: **valid and reliable; safe; secure and resilient; accountable and transparent; explainable and interpretable; privacy-enhanced; and fair, with harmful bias managed**. [1]",
+      "tools_called": [],
+      "expected_tools": [],
+      "context_count": 1,
+      "turn_error": null,
+      "metrics": {
+        "faithfulness": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the actual output aligns with the retrieval context, with no contradictions found.",
+          "error": null
+        },
+        "answer_relevancy": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the response directly addresses the NIST AI RMF’s characteristics of trustworthy AI without irrelevant content. Clear and on target!",
+          "error": null
+        },
+        "contextual_precision": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the first node in the retrieval contexts directly lists the requested NIST AI RMF characteristics: 'valid and reliable, safe, secure and resilient, accountable and transparent, explainable and interpretable, privacy-enhanced, and fair with harmful bias managed.' This is a perfect ranking, with no irrelevant nodes.",
+          "error": null
+        },
+        "contextual_recall": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because node 1 in retrieval context explicitly lists all the characteristics in sentence 1, providing complete and clear support.",
+          "error": null
+        }
+      }
+    },
+    {
+      "case_id": "qa-023",
+      "source": "authored",
+      "question": "What is confabulation in NIST AI 600-1?",
+      "status": "done",
+      "answer": "In NIST AI 600-1, **confabulation** is when a generative AI system confidently presents erroneous or false content. It also includes outputs that diverge from the prompt or other input, or contradict earlier statements in the same context. It is also commonly called “hallucination” or “fabrication.” [1]",
+      "tools_called": [],
+      "expected_tools": [],
+      "context_count": 1,
+      "turn_error": null,
+      "metrics": {
+        "faithfulness": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the actual output is fully faithful to the retrieval context, with no contradictions identified.",
+          "error": null
+        },
+        "answer_relevancy": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the response stays fully focused on explaining confabulation in NIST AI 600-1, with no irrelevant statements. Clear and on topic!",
+          "error": null
+        },
+        "contextual_precision": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the first node in the retrieval contexts directly defines confabulation as when GAI systems 'generate and confidently present erroneous or false content in response to prompts,' also known as 'hallucinations' or 'fabrications.' This fully relevant result earns the maximum score, with no irrelevant nodes ranked above it.",
+          "error": null
+        },
+        "contextual_recall": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because node 1 in retrieval context fully supports sentence 1, including confidently generated false content, divergence from prompts, contradictions within the same context, and the terms hallucination or fabrication. Excellent alignment!",
+          "error": null
+        }
+      }
+    },
+    {
+      "case_id": "qa-024",
+      "source": "authored",
+      "question": "Which risks does NIST AI 600-1 identify as unique to or exacerbated by generative AI?",
+      "status": "done",
+      "answer": "NIST AI 600-1 identifies these risks as unique to or exacerbated by generative AI:\n\n- **Technical/model risks:** confabulation; dangerous or violent recommendations; data privacy; value-chain and component integration; harmful bias and homogenization.\n- **Risks from human misuse:** CBRN information or capabilities; data privacy; human-AI configuration; obscene, degrading, or abusive content; information integrity; information security.\n- **Ecosystem/societal risks:** data privacy; environmental impacts; intellectual property. [1]\n\nThese are suggested groupings, and some risks—such as data privacy—cut across multiple groups. NIST notes that the profile focuses on risks with an empirical evidence base at the time it was written. [1][8]",
+      "tools_called": [
+        "search_knowledge"
+      ],
+      "expected_tools": [],
+      "context_count": 1,
+      "turn_error": null,
+      "metrics": {
+        "faithfulness": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the actual output aligns fully with the retrieval context, with no contradictions identified.",
+          "error": null
+        },
+        "answer_relevancy": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the response stays focused on the risks NIST AI 600-1 identifies as unique to or exacerbated by generative AI, with no irrelevant statements. Excellent relevance!",
+          "error": null
+        },
+        "contextual_precision": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the first node in the retrieval contexts directly identifies the requested risks, including 'CBRN Information or Capabilities,' 'Confabulation,' 'Data Privacy,' and the other relevant categories. With this relevant node ranked first and no irrelevant nodes retrieved, the ranking achieves full precision.",
+          "error": null
+        },
+        "contextual_recall": {
+          "score": 0.0,
+          "passed": false,
+          "reason": "The score is 0.00 because sentence 1’s complete risk list is not fully supported by node 1 in retrieval context: although it covers nearly all listed risks, its 'Dangerous or Violent Recommendations' category does not mention hateful content.",
+          "error": null
+        }
+      }
+    },
+    {
+      "case_id": "qa-025",
+      "source": "authored",
+      "question": "Which NIST AI RMF function cultivates a culture of AI risk management?",
+      "status": "done",
+      "answer": "The **GOVERN** function cultivates a culture of AI risk management within organizations. [1]",
+      "tools_called": [],
+      "expected_tools": [],
+      "context_count": 1,
+      "turn_error": null,
+      "metrics": {
+        "faithfulness": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the actual output aligns fully with the retrieval context, with no contradictions identified.",
+          "error": null
+        },
+        "answer_relevancy": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the response directly addresses which NIST AI RMF function cultivates a culture of AI risk management, with no irrelevant content. Clear and focused!",
+          "error": null
+        },
+        "contextual_precision": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the first node in the retrieval contexts directly identifies GOVERN as the function that 'cultivates and implements a culture of risk management.' This is a perfect ranking: the relevant node comes first, with no irrelevant nodes.",
+          "error": null
+        },
+        "contextual_recall": {
+          "score": 0.0,
+          "passed": false,
+          "reason": "The score is 0.00 because node 1 in retrieval context partially supports sentence 1’s risk-management culture through processes and organizational structures, but does not establish GOVERN as a cross-cutting function that informs and enables the other three functions.",
+          "error": null
+        }
+      }
+    },
+    {
+      "case_id": "qa-026",
+      "source": "authored",
+      "question": "Why is asking the model to withhold information not access control in a RAG application?",
+      "status": "done",
+      "answer": "Once a passage reaches the model, the model can repeat it; asking it not to disclose the passage is only an instruction, not an authorization check. Enforce access control before retrieval results enter the prompt: include only passages the requesting user is allowed to read. [1]",
+      "tools_called": [],
+      "expected_tools": [],
+      "context_count": 3,
+      "turn_error": null,
+      "metrics": {
+        "faithfulness": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the actual output is fully consistent with the retrieval context, with no contradictions. Great alignment!",
+          "error": null
+        },
+        "answer_relevancy": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the response stays fully focused on explaining why asking a model to withhold information is not access control in a RAG application, with no irrelevant statements. Great focus!",
+          "error": null
+        },
+        "contextual_precision": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because all three nodes in the retrieval contexts are relevant and well ranked. The first node directly answers that 'Once text reaches the model, the model can repeat it'; the second supports external authorization because critical controls 'must not be delegated to the LLM'; and the third reinforces that the system prompt 'should not be used as a security control.' No irreleva…",
+          "error": null
+        },
+        "contextual_recall": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because node 1 in retrieval context directly supports sentence 1 about repeating text and sentence 2 about enforcing access before prompt construction. Node 2 reinforces that authorization must not be delegated to the LLM. Both sentences are fully grounded.",
+          "error": null
+        }
+      }
+    },
+    {
+      "case_id": "qa-027",
+      "source": "authored",
+      "question": "Why is filtering retrieval results after ranking weaker than filtering inside the search?",
+      "status": "done",
+      "answer": "Filtering after ranking is weaker because unauthorized passages may already affect result counts and timing, which can leak information. It also relies on every later step remembering to remove them; if one step is missed, private results can be exposed. Filtering inside the search applies the caller’s access rules before results are ranked and returned. [1]",
+      "tools_called": [],
+      "expected_tools": [],
+      "context_count": 1,
+      "turn_error": null,
+      "metrics": {
+        "faithfulness": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the actual output is fully consistent with the retrieval context, with no contradictions. Great alignment!",
+          "error": null
+        },
+        "answer_relevancy": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the response stays fully focused on why filtering after ranking is weaker than filtering within the search, with no irrelevant statements. Great focus!",
+          "error": null
+        },
+        "contextual_precision": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the first node in the retrieval contexts directly answers the question: filtering after ranking “can leak through result counts and timing” and “fails open if a step is forgotten,” while filtering inside search lets you “give every query a filter on what the caller may read.” This is ideal ranking, with no irrelevant nodes.",
+          "error": null
+        },
+        "contextual_recall": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because node 1 in retrieval context directly supports both sentences: sentence 1’s leakage and fail-open risks, and sentence 2’s stronger approach of storing passage-level access metadata and filtering every query. Excellent coverage!",
+          "error": null
+        }
+      }
+    },
+    {
+      "case_id": "qa-028",
+      "source": "authored",
+      "question": "What should a deterministic tool gateway check before an LLM agent's tool call runs?",
+      "status": "done",
+      "answer": "Before a tool call runs, a deterministic gateway should check, in order:\n\n1. The tool is registered and enabled, and the caller’s role is allowed to use it.\n2. The arguments match the schema, with no undeclared properties.\n3. Tool-specific constraints hold—for example, allowlisted hosts or identifiers the user owns.\n4. Rate limits and the conversation budget are not exceeded.\n5. Any required approval exists, matches the exact arguments, has not expired, and has not already been used.\n6. The allow or deny decision and its reason are written to an audit log. [1][4]\n\nA denied call should return a structured reason, and repeated equivalent denials should be limited to prevent looping. [1]",
+      "tools_called": [],
+      "expected_tools": [],
+      "context_count": 4,
+      "turn_error": null,
+      "metrics": {
+        "faithfulness": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the actual output is fully consistent with the retrieval context, with no contradictions. Great alignment!",
+          "error": null
+        },
+        "answer_relevancy": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the response stays focused on what a deterministic tool gateway should check before an LLM agent’s tool call runs, with no irrelevant statements. Great focus!",
+          "error": null
+        },
+        "contextual_precision": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because all four nodes in the retrieval contexts are relevant, with no irrelevant nodes to rank lower. The first node covers checks from 'the tool is registered and enabled' through a decision 'written to an audit log'; the second adds 'tool-specific rules'; the third supplies registry metadata such as 'the roles allowed to call it'; and the fourth confirms 'an Approval when the…",
+          "error": null
+        },
+        "contextual_recall": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because node 1 in retrieval context fully supports all checks in sentence 1 and the auditing requirement in sentence 2. Both sentences are clearly grounded.",
+          "error": null
+        }
+      }
+    },
+    {
+      "case_id": "qa-029",
+      "source": "authored",
+      "question": "How should approvals for dangerous tool calls be designed?",
+      "status": "done",
+      "answer": "Design approvals as an enforced control outside the model:\n\n- **Show the approver what will happen:** identify the tool, its exact arguments, and the reason for the action. Bind approval to a digest of those arguments, make it single-use, and give it a short expiry. [2]\n- **Let the model request approval, but never grant it.** Approval rules must not be changeable by tools. [2]\n- **Require approval in proportion to impact:** use human approval for high-impact actions; dangerous actions may require an administrator or multiple stakeholders. [1][3]\n- **Enforce authorization in code and downstream systems**, with least privilege and checks on every request—not by relying on the model to decide what is allowed. [3][4]\n- **Consider stricter controls when untrusted data is in context**, including blocking automatic tool calls or requiring confirmation. [5]",
+      "tools_called": [],
+      "expected_tools": [],
+      "context_count": 5,
+      "turn_error": null,
+      "metrics": {
+        "faithfulness": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the actual output is fully consistent with the retrieval context, with no contradictions. Great alignment!",
+          "error": null
+        },
+        "answer_relevancy": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the response stays focused on designing approvals for dangerous tool calls, with no irrelevant statements. Great job keeping it on topic!",
+          "error": null
+        },
+        "contextual_precision": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because all five nodes in the retrieval contexts are relevant, with no irrelevant nodes to rank lower. The first node establishes human approval, while the second provides concrete safeguards: approval covering 'the tool, the arguments, and why,' bound to the 'argument digest,' with 'single use' and 'short expiry.' The third through fifth nodes reinforce human authorization and …",
+          "error": null
+        },
+        "contextual_recall": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because node 2 in retrieval context fully supports both sentences: sentence 1’s tool disclosure and digest-bound, single-use, short-lived approval, and sentence 2’s user/admin approval rules and prohibition on model-granted approval. Complete coverage!",
+          "error": null
+        }
+      }
+    },
+    {
+      "case_id": "qa-030",
+      "source": "authored",
+      "question": "Why is prompt injection hard to prevent, and which layered defences help?",
+      "status": "done",
+      "answer": "Prompt injection is hard to prevent because models may treat instructions embedded in data as instructions, even when they are hidden or not human-readable. System prompts, delimiters, and fine-tuning can help, but attackers can rephrase instructions, use other languages or encodings, or split them across sources. Pattern-based detection also misses novel attacks, and RAG does not eliminate the risk. Multimodal inputs add another route, such as instructions hidden in images. [2][3][1]\n\nA layered approach helps reduce risk:\n\n- **Set clear instruction boundaries:** Use system instructions and delimiters to distinguish trusted instructions from user or retrieved content. These are helpful, but not guarantees. [3]\n- **Limit the impact of a successful injection:** Give tools only the permissions they need; enforce authorization and safety checks in application code, not just in the model. **This is general security guidance, not covered by the cited passages.**\n- **Gate consequential actions:** Validate tool arguments and outputs, and require human approval for sensitive or irreversible actions. **General security guidance, not covered by the cited passages.**\n- **Use detection as one layer, not the sole defence:** Pattern or classifier checks may catch known attacks but can miss new ones. [3]\n- **Keep safeguards current:** Fine-tuning and safety mechanisms can help, but need ongoing updates; no single measure reliably prevents injection. [2][3]",
+      "tools_called": [],
+      "expected_tools": [],
+      "context_count": 3,
+      "turn_error": null,
+      "metrics": {
+        "faithfulness": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the actual output is fully faithful to the retrieval context, with no contradictions identified.",
+          "error": null
+        },
+        "answer_relevancy": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the response stays focused on why prompt injection is hard to prevent and which layered defences help, with no irrelevant statements. Great focus throughout!",
+          "error": null
+        },
+        "contextual_precision": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because all three nodes in the retrieval contexts are relevant, with no irrelevant nodes disrupting the ranking. The first node explains hidden 'instructions in images that accompany benign text'; the second notes that RAG and fine-tuning 'do not fully mitigate prompt injection vulnerabilities'; and the third supports layered defences by limiting 'what a successful injection can…",
+          "error": null
+        },
+        "contextual_recall": {
+          "score": 0.5,
+          "passed": false,
+          "reason": "The score is 0.50 because node 3 in retrieval context supports sentence 1’s core claims about unreliable separation of instructions from data and bypassable safeguards, though the shared-channel description is implicit. It broadly recommends limiting injection impact but does not substantiate sentence 2’s specific layered defences.",
+          "error": null
+        }
+      }
+    }
+  ],
+  "dataset": {
+    "cases": 30,
+    "authored": 30,
+    "added": 0,
+    "limit": null
+  },
+  "dataset_line": "30 (30 authored, 0 added from Feedback)",
+  "cost": {
+    "total_usd": 0.945972,
+    "turns_usd": 0.019739,
+    "judge_usd": 0.926233,
+    "judge_calls": 329,
+    "judge_input_tokens": 189159,
+    "judge_output_tokens": 52473,
+    "unknown_cost_calls": 0
+  },
+  "run_id": "9f7e3b75-f1de-4a72-8ee1-6c9f500f0a33",
+  "suite": "qa",
+  "kind": "deepeval_qa",
+  "started_at": "2026-11-09T15:07:43.253500+00:00",
+  "finished_at": "2026-11-09T15:17:28.196216+00:00",
+  "estimate": {
+    "cost_usd": 2.0774
+  }
+}
