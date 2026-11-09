@@ -152,11 +152,9 @@ def create_user(body: UserCreateIn, auth: AuthService = Depends(get_auth)) -> Us
 
 @admin_router.post("/{user_id}/password", status_code=status.HTTP_204_NO_CONTENT)
 def reset_password(
-    user_id: int, body: PasswordResetIn, request: Request, auth: AuthService = Depends(get_auth)
+    user_id: int, body: PasswordResetIn, auth: AuthService = Depends(get_auth)
 ) -> Response:
-    user = auth.get_user(user_id)
-    auth.set_password(user, body.new_password)
-    _throttle(request, auth).clear_user(user.username)  # the owner can sign in at once
+    auth.set_password(auth.get_user(user_id), body.new_password)  # also ends throttling
     auth.db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 

@@ -9,13 +9,13 @@ from datetime import timedelta
 
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from rampart.db import utcnow
 from rampart.errors import BadRequest, Conflict, Forbidden, Invalid, NotFound
-from rampart.models import AuthSession, User
+from rampart.models import AuthSession, LoginFailure, User
 
 ROLES = ("user", "admin")
 USERNAME_RE = re.compile(r"^[A-Za-z0-9._-]{3,64}$")
@@ -117,6 +117,8 @@ class AuthService:
         validate_password(new_password)
         user.password_hash = _hasher.hash(new_password)
         self.revoke_all_sessions(user)
+        # A new password ends any sign-in throttling of the account (an admin reset included).
+        self.db.execute(delete(LoginFailure).where(LoginFailure.username == user.username))
         self.db.flush()
 
     # --- sessions -----------------------------------------------------------------
