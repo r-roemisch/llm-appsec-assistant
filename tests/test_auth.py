@@ -160,3 +160,16 @@ def test_forwarded_header_is_ignored_unless_trusted(app):
     assert _login(client, "someone", "x-password", headers={"X-Forwarded-For": "10.9.9.9"}).status_code == 429
     app.state.settings.trust_proxy_headers = True
     assert _login(client, "someone", "x-password", headers={"X-Forwarded-For": "10.9.9.9"}).status_code == 401
+
+
+def test_deleting_an_account_deletes_its_conversation_checkpoints(app):
+    make_user(app, "boss", role="admin")
+    carol_id = make_user(app, "carol")
+    carol = Api(app, "carol")
+    cid = carol.new_conversation()["id"]
+    carol.send(cid, "hello")
+    saver = app.state.chat.engine.checkpointer
+    config = {"configurable": {"thread_id": cid}}
+    assert saver.get_tuple(config) is not None
+    assert Api(app, "boss").delete(f"/api/admin/users/{carol_id}").status_code == 204
+    assert saver.get_tuple(config) is None

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from rampart.auth.service import AuthService
@@ -15,7 +16,7 @@ from rampart.deps import (
     get_db,
     require_admin,
 )
-from rampart.models import AuthSession, User
+from rampart.models import AuthSession, Conversation, User
 from rampart.schemas import (
     LoginIn,
     PasswordChangeIn,
@@ -160,15 +161,19 @@ def reset_password(
 
 
 @admin_router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_user(
+async def delete_user(
     user_id: int,
     request: Request,
     admin: User = Depends(require_admin),
     auth: AuthService = Depends(get_auth),
     db: Session = Depends(get_db),
 ) -> Response:
+    threads: list[str] = []
     if admin.id != user_id and db.get(User, user_id) is not None:
         request.app.state.knowledge.delete_user_vectors(user_id)  # uploads go with the account
+        threads = list(db.scalars(select(Conversation.id).where(Conversation.user_id == user_id)))
     auth.delete_user(user_id, admin)
     db.commit()
+    for conversation_id in threads:  # the LangGraph checkpoints live in their own database
+        await request.app.state.chat.engine.delete_thread(conversation_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
