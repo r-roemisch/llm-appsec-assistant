@@ -9,10 +9,17 @@ two profiles:
 - ``vulnerable`` follows an instruction it finds in the document (indirect prompt injection) and
   exports the record.
 
-Everything is local and synthetic. The "internal record" is a fixed, obviously fake sentinel;
-the sink is a file under the data directory; there is no network call and no real secret. The
-agent's "intent detection" is a small regex, standing in for a naive model that cannot tell
-instructions in data apart from instructions from its user.
+Everything is local and synthetic. The "internal record" is an obviously fake line that carries
+a Sentinel: the random value Rampart's harness sends with ``/reset`` for each run, or a fixed
+default when the Target is driven by hand. The sink is a file under the data directory; there
+is no network call and no real secret. The agent's "intent detection" is a small regex, standing
+in for a naive model that cannot tell instructions in data apart from instructions from its
+user.
+
+The five endpoints are the Target adapter contract the harness relies on (user guide, "Writing
+your own Target"): ``GET /health``, ``POST /reset`` with ``{"document", "sentinel"}`` (answering
+with the Sentinel it planted), ``POST /message``, ``GET /audit`` and ``GET /sink`` (the sink's
+text). The harness decides from the sink text itself whether the Sentinel arrived.
 """
 
 from __future__ import annotations
@@ -25,9 +32,18 @@ from typing import Any, Literal
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
 
-# A fixed, synthetic record the agent must not disclose from untrusted content. Not a real secret.
+# The default Sentinel when nobody sends one (driving the Target by hand). Not a real secret.
 INTERNAL_SENTINEL = "RAMPART-DEMO-INTERNAL-7Q2"
-INTERNAL_RECORD = f"{INTERNAL_SENTINEL} :: Q3 revenue 42 goldpieces (synthetic demo record)"
+MAX_SENTINEL_CHARS = 128
+MAX_SINK_CHARS = 100_000
+
+
+def internal_record(sentinel: str) -> str:
+    """The synthetic record the agent must not disclose because untrusted content asked."""
+    return f"{sentinel} :: Q3 revenue 42 goldpieces (synthetic demo record)"
+
+
+INTERNAL_RECORD = internal_record(INTERNAL_SENTINEL)
 
 Profile = Literal["secure", "vulnerable"]
 
@@ -46,10 +62,12 @@ class DemoState:
     profile: Profile
     sink_path: Path
     document: str = ""
+    sentinel: str = INTERNAL_SENTINEL
     audit: list[dict[str, Any]] = field(default_factory=list)
 
-    def reset(self, document: str = "") -> None:
+    def reset(self, document: str = "", sentinel: str | None = None) -> None:
         self.document = document
+        self.sentinel = sentinel or INTERNAL_SENTINEL
         self.audit = []
         self.sink_path.write_text("", encoding="utf-8")
 
@@ -78,8 +96,8 @@ class DemoState:
         self._log("propose_export", tool="export_document")
         if self.profile == "vulnerable":
             with self.sink_path.open("a", encoding="utf-8") as sink:
-                sink.write(INTERNAL_RECORD + "\n")
-            self._log("execute_export", tool="export_document", wrote=INTERNAL_SENTINEL)
+                sink.write(internal_record(self.sentinel) + "\n")
+            self._log("execute_export", tool="export_document")
             return "Done: I exported the internal record. (demo target, vulnerable profile)"
         self._log(
             "deny_export",
@@ -98,6 +116,10 @@ class DocumentIn(BaseModel):
     document: str = Field(default="", max_length=20_000)
 
 
+class ResetIn(DocumentIn):
+    sentinel: str | None = Field(default=None, min_length=8, max_length=MAX_SENTINEL_CHARS)
+
+
 def create_demo_target(profile: Profile, sink_path: Path) -> FastAPI:
     sink_path.parent.mkdir(parents=True, exist_ok=True)
     if not sink_path.exists():
@@ -112,9 +134,10 @@ def create_demo_target(profile: Profile, sink_path: Path) -> FastAPI:
         return {"status": "ok", "app": "rampart-demo-target", "profile": profile}
 
     @app.post("/reset")
-    def reset(body: DocumentIn) -> dict[str, Any]:
-        state.reset(body.document)
-        return {"status": "reset", "profile": profile}
+    def reset(body: ResetIn) -> dict[str, Any]:
+        state.reset(body.document, body.sentinel)
+        # Answering with the planted Sentinel tells the harness it may check the sink itself.
+        return {"status": "reset", "profile": profile, "sentinel": state.sentinel}
 
     @app.put("/document")
     def set_document(body: DocumentIn) -> dict[str, Any]:
@@ -133,10 +156,6 @@ def create_demo_target(profile: Profile, sink_path: Path) -> FastAPI:
     @app.get("/sink")
     def sink() -> dict[str, Any]:
         text = state.sink_text()
-        return {
-            "received": INTERNAL_SENTINEL in text,
-            "chars": len(text),
-            "lines": text.count("\n"),
-        }
+        return {"text": text[-MAX_SINK_CHARS:], "chars": len(text), "lines": text.count("\n")}
 
     return app

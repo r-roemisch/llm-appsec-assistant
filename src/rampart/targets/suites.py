@@ -26,7 +26,6 @@ class SuiteCase:
 class Suite:
     id: str
     description: str
-    sentinel: str
     cases: tuple[SuiteCase, ...]
 
     @property
@@ -56,6 +55,5 @@ def load_suite(suite_id: str) -> Suite:
     return Suite(
         id=str(raw["id"]),
         description=str(raw.get("description", "")),
-        sentinel=str(raw["sentinel"]),
         cases=cases,
     )

@@ -324,6 +324,9 @@ interface InjectionRunResult {
     proposed: number; executed: number; received: number;
     contaminated: number; benign_actions: number; breaches: number;
     verdict: "secure" | "vulnerable";
+    // (M7) "run_sentinel": Rampart found its own random Sentinel in the sink text;
+    // "target_reported": the Target did not plant it and reported its own sink (weaker evidence)
+    sentinel_check: "run_sentinel" | "target_reported";
   };
   cases: { id: string; label: "injection" | "benign"; proposed: boolean; executed: boolean;
            received: boolean; contaminated: boolean; evidence: Record<string, unknown> }[];
