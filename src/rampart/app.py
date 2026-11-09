@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 
@@ -42,6 +43,8 @@ from rampart.tools.builtin import build_registry
 from rampart.tools.osv import OsvClient
 from rampart.tracing import Tracer, build_tracer
 from rampart.usage import router as usage_routes
+
+log = logging.getLogger("rampart")
 
 
 def create_app(
@@ -94,6 +97,13 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        if settings.trace_retention_days is not None:
+            from rampart.tracing.retention import prune_traces
+
+            pruned = prune_traces(settings.traces_dir, settings.trace_retention_days)
+            if pruned:
+                days = settings.trace_retention_days
+                log.info("deleted %d trace files older than %d days", len(pruned), days)
         saver = checkpointer
         connection = None
         if saver is None:

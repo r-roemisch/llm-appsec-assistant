@@ -26,6 +26,8 @@ from rampart.plugins.catalog import load_catalog
 app = typer.Typer(help="Rampart: an LLM application security assistant.", no_args_is_help=True)
 user_app = typer.Typer(help="Manage accounts (there is no sign-up page).", no_args_is_help=True)
 app.add_typer(user_app, name="user")
+traces_app = typer.Typer(help="Local JSONL traces.", no_args_is_help=True)
+app.add_typer(traces_app, name="traces")
 
 
 def _settings() -> Settings:
@@ -159,6 +161,27 @@ def ingest(
     if summary.failures:
         typer.echo(f"{len(summary.failures)} source group(s) failed; run again to retry", err=True)
         raise typer.Exit(code=1)
+
+
+@traces_app.command("prune")
+def traces_prune(
+    older_than: Annotated[
+        int,
+        typer.Option("--older-than", min=1, help="Delete trace files older than this many days."),
+    ],
+    dry_run: Annotated[
+        bool, typer.Option("--dry-run", help="List the files without deleting them.")
+    ] = False,
+) -> None:
+    """Delete local JSONL trace files older than a number of days (Langfuse keeps its own)."""
+    from rampart.tracing.retention import prune_traces
+
+    settings = _settings()
+    files = prune_traces(settings.traces_dir, older_than, dry_run=dry_run)
+    verb = "Would delete" if dry_run else "Deleted"
+    for path in files:
+        typer.echo(f"{verb} {path}")
+    typer.echo(f"{verb} {len(files)} trace file(s) older than {older_than} days")
 
 
 @app.command("eval")

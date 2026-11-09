@@ -75,6 +75,10 @@ class Settings(BaseSettings):
     osv_cache_ttl_hours: int = 6
     osv_timeout_seconds: float = 20.0
 
+    # Trace retention (M7): when set, local JSONL traces older than this many days are deleted
+    # when the server starts. Unset keeps them; `rampart traces prune` deletes on demand.
+    trace_retention_days: int | None = Field(default=None, ge=1)
+
     # Plugins (M5): the catalog file is the only place a Plugin's command is defined
     plugins_dir: Path = REPO_ROOT / "plugins"
     plugins_catalog: Path | None = None  # default: plugins_dir / "catalog.yaml"

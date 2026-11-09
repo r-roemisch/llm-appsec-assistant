@@ -82,3 +82,60 @@ def test_demo_target_command_is_available():
     result = CliRunner().invoke(app, ["demo-target", "--help"])
     assert result.exit_code == 0
     assert "secure or vulnerable" in result.output
+
+
+def test_traces_prune_deletes_only_old_trace_files(tmp_path):
+    from datetime import UTC, datetime, timedelta
+
+    traces = tmp_path / "data" / "traces"
+    traces.mkdir(parents=True)
+    today = datetime.now(UTC).date()
+    old = traces / f"{(today - timedelta(days=40)).isoformat()}.jsonl"
+    recent = traces / f"{(today - timedelta(days=3)).isoformat()}.jsonl"
+    other = traces / "notes.txt"
+    for path in (old, recent, other):
+        path.write_text("{}\n")
+    runner = CliRunner()
+    dry = runner.invoke(app, ["traces", "prune", "--older-than", "30", "--dry-run"], env=_env(tmp_path))
+    assert dry.exit_code == 0 and "Would delete 1 trace file(s)" in dry.output and old.exists()
+    done = runner.invoke(app, ["traces", "prune", "--older-than", "30"], env=_env(tmp_path))
+    assert done.exit_code == 0 and "Deleted 1 trace file(s)" in done.output
+    assert not old.exists() and recent.exists() and other.exists()
+    assert runner.invoke(app, ["traces", "prune", "--older-than", "0"], env=_env(tmp_path)).exit_code != 0
+
+
+def test_the_server_prunes_traces_at_start_only_when_configured(tmp_path):
+    from datetime import UTC, datetime, timedelta
+
+    from fastapi.testclient import TestClient
+    from langgraph.checkpoint.memory import InMemorySaver
+
+    from rampart.app import create_app
+    from rampart.catalog.providers import StaticProbe
+    from rampart.config import load_settings
+
+    traces = tmp_path / "data" / "traces"
+    traces.mkdir(parents=True)
+    old = traces / f"{(datetime.now(UTC).date() - timedelta(days=10)).isoformat()}.jsonl"
+    old.write_text("{}\n")
+
+    def start(**overrides):
+        settings = load_settings(
+            _env_file=None,
+            data_dir=tmp_path / "data",
+            models_file=REPO / "models.yaml",
+            openrouter_api_key=None,
+            langfuse_public_key=None,
+            langfuse_secret_key=None,
+            frontend_dist=tmp_path / "no-dist",
+            plugins_catalog=tmp_path / "none.yaml",
+            **overrides,
+        )
+        application = create_app(settings, probe=StaticProbe(openrouter=False, ollama=None), checkpointer=InMemorySaver())
+        with TestClient(application):
+            pass
+
+    start()
+    assert old.exists()  # unset: nothing is deleted
+    start(trace_retention_days=7)
+    assert not old.exists()
