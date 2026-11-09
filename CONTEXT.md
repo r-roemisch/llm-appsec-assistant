@@ -78,6 +78,10 @@ _Avoid_: permission, grant, confirmation
 A registered loopback application that the injection test Tool is allowed to test.
 _Avoid_: victim, app under test, endpoint
 
+**Sentinel**:
+A random value Rampart plants as a Target's internal record for one test run and looks for in the Target's sink afterwards.
+_Avoid_: marker, canary, secret
+
 **Finding**:
 A single rule-produced observation from prompt analysis or from a test run.
 _Avoid_: issue, vulnerability, alert
@@ -92,8 +96,16 @@ _Avoid_: summary, export, document
 The description of a user's stack, packages and Targets that the user enters explicitly and that the assistant reads every turn.
 _Avoid_: memory, preferences, context
 
+**Dependency File**:
+A requirements, lock or package file from the user's project, imported into the Project Profile to list packages with their versions.
+_Avoid_: manifest, lockfile, SBOM
+
 ### Evaluation
 
 **Evaluation Case**:
 A saved question with its expected answer or expected Tools, used by the evaluation suite.
 _Avoid_: golden, test case, sample
+
+**Holdout Set**:
+Guard Evaluation Cases never used to change a rule, measured once and replaced before any further tuning.
+_Avoid_: test set, golden set
