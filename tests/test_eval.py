@@ -253,8 +253,8 @@ def test_the_web_app_never_imports_deepeval(tmp_path):
 def test_the_guard_suite_can_measure_the_model_classifier(app, tmp_path):
     """P6-A30: --classifier runs the same classifier function the turn graph uses over every
     input and reports it alone and combined with the rules; a failed call never blocks."""
-    from rampart.chat.scripted import ScriptedChatModel
     from helpers import RecordingFactory
+    from rampart.chat.scripted import ScriptedChatModel
 
     eval_dir = tmp_path / "eval"
     eval_dir.mkdir()
