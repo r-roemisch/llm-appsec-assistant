@@ -57,6 +57,8 @@ def render(payload: dict[str, Any]) -> str:
         ("Cases", payload["dataset_line"]),
     ]
     models = payload.get("models") or {}
+    if suite == "guard" and models.get("grader"):
+        facts += [("Classifier Model (grader Slot)", models.get("grader"))]
     if suite != "guard":
         facts += [
             ("Chat Model", models.get("chat")),
@@ -101,18 +103,55 @@ def _guard_section(metrics: dict[str, Any]) -> list[str]:
         "| Set | Adversarial | Benign | Precision | Recall | F1 | False-positive rate |",
         "|---|---|---|---|---|---|---|",
     ]
-    for key, label in (
-        ("cases", "guard_cases.jsonl (written with the rules)"),
-        ("holdout", "guard_holdout.jsonl (held out, never tuned against)"),
-    ):
+    sets = (
+        ("cases", "guard_cases.jsonl (development set, the rules are tuned on it)"),
+        ("holdout", "guard_holdout.jsonl (Holdout Set, never tuned against)"),
+    )
+    for key, label in sets:
         m = metrics[key]
         lines.append(
             f"| {label} | {m['adversarial']} | {m['benign']} | {_pct(m['precision'])} | "
             f"{_pct(m['recall'])} | {_pct(m['f1'])} | {_pct(m['false_positive_rate'])} |"
         )
-    lines += ["", "Recall by category (written set):", ""]
+    classifier = metrics.get("classifier")
+    if classifier:
+        lines += [
+            "",
+            "## Model classifier (grader Slot) and the combination the runtime applies",
+            "",
+            "| Set | Detector | Precision | Recall | F1 | False-positive rate | Failed calls |",
+            "|---|---|---|---|---|---|---|",
+        ]
+        for key, label in sets:
+            for detector, name in (
+                ("classifier", "classifier alone"),
+                ("combined", "rules or classifier"),
+            ):
+                m = classifier[key][detector]
+                lines.append(
+                    f"| {label.split(' (')[0]} | {name} | {_pct(m['precision'])} | "
+                    f"{_pct(m['recall'])} | {_pct(m['f1'])} | {_pct(m['false_positive_rate'])} | "
+                    f"{classifier[key]['failed_calls']} |"
+                )
+        for key, label in (("cases", "development set"), ("holdout", "Holdout Set")):
+            m = classifier[key]["combined"]
+            if m["missed"]:
+                lines += [
+                    "",
+                    f"Missed by both ({label}): "
+                    + ", ".join(f"`{x['id']}` ({x['category']})" for x in m["missed"]),
+                ]
+            if m["blocked_benign"]:
+                lines += [
+                    "",
+                    f"Benign inputs blocked by the combination ({label}): "
+                    + ", ".join(f"`{x['id']}`" for x in m["blocked_benign"]),
+                ]
+    lines += ["", "Recall by category of the rules (development set):", ""]
     lines += [f"- {c}: {_pct(r)}" for c, r in metrics["cases"]["recall_by_category"].items()]
-    for key, label in (("cases", "written set"), ("holdout", "held-out set")):
+    lines += ["", "Recall by category of the rules (Holdout Set):", ""]
+    lines += [f"- {c}: {_pct(r)}" for c, r in metrics["holdout"]["recall_by_category"].items()]
+    for key, label in (("cases", "development set"), ("holdout", "Holdout Set")):
         missed = metrics[key]["missed"]
         if missed:
             lines += [
@@ -128,8 +167,13 @@ def _guard_section(metrics: dict[str, Any]) -> list[str]:
             ]
     lines += [
         "",
-        "Detection means the input would be blocked. The optional model classifier is not part of",
-        "this deterministic run.",
+        "Detection means the input would be blocked."
+        + (
+            ""
+            if classifier
+            else " The optional model classifier is not part of this deterministic run"
+            " (`rampart eval --suite guard --classifier` adds it)."
+        ),
     ]
     return lines
 

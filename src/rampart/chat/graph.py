@@ -21,6 +21,7 @@ values, which ``load_context`` resets at the start of each turn.
 
 from __future__ import annotations
 
+import contextlib
 import secrets
 import time
 from collections.abc import Callable, Sequence
@@ -57,7 +58,6 @@ from rampart.chat.prompts import (
     citation_rules,
     clean_query,
     extract_citations,
-    first_json_object,
     grade_messages,
     parse_relevant,
     parse_route,
@@ -69,9 +69,9 @@ from rampart.chat.prompts import (
 from rampart.chat.toolset import ToolSet
 from rampart.gateway.gateway import stored_arguments
 from rampart.guards.input_guard import (
-    CLASSIFIER_SYSTEM,
     SAFE_RESPONSE,
     InputVerdict,
+    classify_message,
     scan_untrusted,
 )
 from rampart.guards.secrets import redact
@@ -269,22 +269,14 @@ def build_graph(ctx: TurnContext, checkpointer: BaseCheckpointSaver | None) -> C
         calls = 0
         if not blocked and ctx.input_classifier and ctx.grader is not None:
             question = latest_question(state["messages"])
-            try:
-                reply = await ctx.grader.llm.ainvoke(
-                    [
-                        SystemMessage(content=CLASSIFIER_SYSTEM),
-                        HumanMessage(content=question[:4000]),
-                    ]
-                )
+            verdict = await classify_message(ctx.grader.llm, question)
+            if verdict.reply is not None:
                 calls = 1
-                await ctx.ledger.record_chat("classify", ctx.grader.spec, reply)
-                verdict = first_json_object(text_of(reply.content)) or {}
-                if verdict.get("attack") is True:
-                    blocked = True
-                    reason = str(verdict.get("reason") or "")[:200]
-                    guard_event("input", "blocked", "classifier", reason)
-            except Exception:  # a failed classifier must not fail the turn
-                pass
+                with contextlib.suppress(Exception):  # accounting must not fail the turn
+                    await ctx.ledger.record_chat("classify", ctx.grader.spec, verdict.reply)
+            if verdict.attack is True:  # a failed classifier never blocks
+                blocked = True
+                guard_event("input", "blocked", "classifier", verdict.reason)
         update: dict[str, Any] = {"model_calls": state["model_calls"] + calls}
         if blocked:
             # The blocked text leaves the model-facing history too, so a later turn cannot

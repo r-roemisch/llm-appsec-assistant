@@ -47,7 +47,7 @@ from rampart.models import EvalRun
 
 SUITES = ("qa", "tool", "guard")
 KINDS = {"qa": "deepeval_qa", "tool": "deepeval_tool", "guard": "guard"}
-SUITE_OF = {kind: suite for suite, kind in KINDS.items()}
+SUITE_OF = {kind: suite for suite, kind in KINDS.items()} | {"guard_classifier": "guard"}
 ACTIVE = ("queued", "running")
 
 Progress = Callable[[str], None]
@@ -127,10 +127,12 @@ class EvalService:
             )
         return found if limit is None or suite == "guard" else found[:limit]
 
-    def estimates(self, suites: tuple[str, ...], limit: int | None = None) -> list[SuiteEstimate]:
+    def estimates(
+        self, suites: tuple[str, ...], limit: int | None = None, *, classifier: bool = False
+    ) -> list[SuiteEstimate]:
         prices: dict[str, Price] = {}
         price_note: str | None = None
-        if any(s != "guard" for s in suites):
+        if classifier or any(s != "guard" for s in suites):
             try:
                 prices = self._prices()
             except Exception as exc:
@@ -146,8 +148,9 @@ class EvalService:
                     grader=slots["grader"].model,
                     judge=slots["judge"].model,
                     prices=prices,
+                    classifier=classifier and suite == "guard",
                 )
-                if price_note and suite != "guard":
+                if price_note and (suite != "guard" or result.classifier):
                     result.notes.append(price_note)
                 found.append(result)
         return found
@@ -166,7 +169,7 @@ class EvalService:
         with session_scope(self.session_factory) as db:
             for e in estimates:
                 row = EvalRun(
-                    kind=KINDS[e.suite],
+                    kind="guard_classifier" if e.classifier else KINDS[e.suite],
                     status="queued",
                     judge_model=e.judge_model,
                     estimated_cost_usd=e.cost_usd,
@@ -215,9 +218,10 @@ class EvalService:
             row.status = "running"
             row.pid = os.getpid()
             suite, limit, estimated = SUITE_OF[row.kind], row.case_limit, row.estimated_cost_usd
+            classifier = row.kind == "guard_classifier"
         started = datetime.now(UTC)
         try:
-            payload = self._run_suite(suite, limit, run_id, progress)
+            payload = self._run_suite(suite, limit, run_id, progress, classifier=classifier)
             payload.update(
                 {
                     "run_id": run_id,
@@ -251,25 +255,41 @@ class EvalService:
         return row
 
     def _run_suite(
-        self, suite: str, limit: int | None, run_id: str, progress: Progress | None
+        self,
+        suite: str,
+        limit: int | None,
+        run_id: str,
+        progress: Progress | None,
+        *,
+        classifier: bool = False,
     ) -> dict[str, Any]:
         if suite == "guard":
             metrics = guard.run(self.settings.eval_dir)
             written, held = metrics["cases"], metrics["holdout"]
             n = written["adversarial"] + written["benign"]
             m = held["adversarial"] + held["benign"]
+            models: dict[str, Any] = {}
+            cost = {"total_usd": 0.0, "turns_usd": 0.0, "judge_usd": 0.0, "unknown_cost_calls": 0}
+            if classifier:
+                with session_scope(self.session_factory) as db:
+                    grader_slot = self._slots(db)["grader"]
+                say = progress or (lambda _line: None)
+                say(f"guard: classifying {n + m} inputs with {grader_slot.model.id}")
+                ledger = asyncio.run(self._classify(grader_slot, metrics))
+                models = {"grader": grader_slot.model.id}
+                cost = {
+                    "total_usd": round(ledger.cost_usd, 6),
+                    "turns_usd": round(ledger.cost_usd, 6),
+                    "judge_usd": 0.0,
+                    "unknown_cost_calls": ledger.unknown_cost_calls,
+                }
             return {
-                "models": {},
+                "models": models,
                 "metrics": metrics,
                 "cases": [],
                 "dataset": {"cases": n + m, "authored": n + m, "added": 0, "limit": None},
-                "dataset_line": f"{n} written with the rules, {m} held out",
-                "cost": {
-                    "total_usd": 0.0,
-                    "turns_usd": 0.0,
-                    "judge_usd": 0.0,
-                    "unknown_cost_calls": 0,
-                },
+                "dataset_line": f"{n} in the development set, {m} in the Holdout Set",
+                "cost": cost,
             }
         with session_scope(self.session_factory) as db:
             cases = self._cases(suite, db, limit)
@@ -354,6 +374,36 @@ class EvalService:
                 "unknown_cost_calls": unknown,
             },
         }
+
+    async def _classify(self, slot: SlotConfig, metrics: dict[str, Any]) -> Any:
+        """Run the model classifier over every Guard input; adds its metrics in place."""
+        from rampart.eval.judge import CostLedger
+
+        ledger = CostLedger(
+            self.settings.openrouter_api_key.get_secret_value()
+            if self.settings.openrouter_api_key
+            else None
+        )
+        llm = self.model_factory.build(
+            slot.model, GenerationSettings(slot.temperature, slot.max_tokens), purpose="grader"
+        )
+
+        async def on_reply(reply: Any) -> None:
+            await ledger.add("classify", slot.model, reply)
+
+        try:
+            cases = guard_cases(self.settings.eval_dir) + guard_cases(
+                self.settings.eval_dir, holdout=True
+            )
+            verdicts = await guard.classify_all(
+                cases, llm, on_reply, concurrency=self.settings.eval_concurrency
+            )
+        finally:
+            close = getattr(self.model_factory, "aclose", None)
+            if close is not None:
+                await close()
+        metrics["classifier"] = guard.classifier_metrics(self.settings.eval_dir, verdicts)
+        return ledger
 
     async def _preflight(self, slot: SlotConfig) -> None:
         from langchain_core.messages import HumanMessage

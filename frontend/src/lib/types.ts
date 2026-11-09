@@ -762,7 +762,7 @@ export interface GuardRunMetrics {
   holdout: GuardSetMetrics;
 }
 
-export type EvalRunKind = "deepeval_qa" | "deepeval_tool" | "guard";
+export type EvalRunKind = "deepeval_qa" | "deepeval_tool" | "guard" | "guard_classifier";
 export type EvalRunStatus = "queued" | "running" | "done" | "failed";
 
 export interface EvalRunOut {

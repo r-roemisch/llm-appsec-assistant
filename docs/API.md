@@ -465,7 +465,7 @@ interface GuardSetMetrics {
 }
 interface EvalRunOut {
   id: string;
-  kind: "deepeval_qa" | "deepeval_tool" | "guard";
+  kind: "deepeval_qa" | "deepeval_tool" | "guard" | "guard_classifier";  // (M7) the last from the CLI's --classifier
   suite: "qa" | "tool" | "guard";
   status: "queued" | "running" | "done" | "failed";
   judge_model: string | null;

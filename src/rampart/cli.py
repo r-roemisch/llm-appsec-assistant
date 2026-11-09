@@ -189,16 +189,23 @@ def eval_command(
     suite: str = typer.Option("all", help="qa, tool, guard or all"),
     limit: int | None = typer.Option(None, min=1, help="Only the first N qa or tool cases."),
     yes: bool = typer.Option(False, "--yes", "-y", help="Start without asking (for CI)."),
+    classifier: bool = typer.Option(
+        False,
+        "--classifier",
+        help="Guard suite: let the grader Slot's model classifier judge every input too (cents).",
+    ),
 ) -> None:
     """Run the evaluation: DeepEval on real turns, Guard metrics; shows the cost first."""
     from rampart.eval.service import SUITES, EvalService
 
     if suite not in (*SUITES, "all"):
         raise typer.BadParameter("suite must be qa, tool, guard or all")
+    if classifier and suite != "guard":
+        raise typer.BadParameter("--classifier goes with --suite guard")
     suites = SUITES if suite == "all" else (suite,)
     settings = _settings()
     service = EvalService.from_settings(settings)
-    estimates = service.estimates(suites, limit)
+    estimates = service.estimates(suites, limit, classifier=classifier)
     typer.echo("Estimate (OpenRouter list prices; the report records what each call cost):")
     for e in estimates:
         cost = "unknown" if e.cost_usd is None else f"${e.cost_usd:.4f}"

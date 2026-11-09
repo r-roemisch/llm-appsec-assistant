@@ -21,6 +21,7 @@ TURN_CALLS = (
     ("answer", "chat", 4200, 450),
 )
 TOOL_FOLLOW_UP = ("answer after the Tool result", "chat", 4800, 350)
+CLASSIFY_CALL = (260, 40)  # the classifier prompt plus one short message, a one-line verdict
 # DeepEval judge calls per QA case: metric -> [(input tokens, output tokens) per call]
 JUDGE_CALLS: dict[str, list[tuple[int, int]]] = {
     "faithfulness": [(2900, 500), (900, 350), (1900, 450), (700, 120)],
@@ -42,6 +43,7 @@ class SuiteEstimate:
     output_tokens: int
     cost_usd: float | None  # None when a Model's price is unknown
     notes: list[str] = field(default_factory=list)
+    classifier: bool = False  # guard only: the grader Slot's classifier judges every input too
 
     def as_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -61,7 +63,26 @@ def estimate(
     grader: ModelSpec,
     judge: ModelSpec | None,
     prices: dict[str, Price],
+    classifier: bool = False,
 ) -> SuiteEstimate:
+    if suite == "guard" and classifier:
+        cost = _cost([CLASSIFY_CALL] * cases, price_for(grader, prices))
+        notes = ["The rules run locally; the grader Slot's classifier judges every input once."]
+        if cost is None:
+            notes.append(f"no price listed for {grader.id}")
+        return SuiteEstimate(
+            "guard",
+            cases,
+            grader.id,
+            None,
+            cases,
+            0,
+            CLASSIFY_CALL[0] * cases,
+            CLASSIFY_CALL[1] * cases,
+            round(cost, 4) if cost is not None else None,
+            notes,
+            classifier=True,
+        )
     if suite == "guard":
         return SuiteEstimate(
             "guard",
