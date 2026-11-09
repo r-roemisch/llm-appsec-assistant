@@ -37,7 +37,9 @@ INJECTION_RULES: tuple[Rule, ...] = (
         "instruction_override",
         3,
         re.compile(
-            r"\b(?:ignore|disregard|forget|override|bypass|skip|abandon|drop)\b[^.\n]{0,40}?\b"
+            r"\b(?:ignore|disregard|forget|override|bypass|skip|abandon|drop|discard|suspend|"
+            r"(?:set|put|lay|cast) aside|throw out|stop following|no longer follow)\b"
+            r"[^.\n]{0,40}?\b"
             + _DETERMINER
             + r"\b[^.\n]{0,30}?\b(?:instructions?|rules?|guidelines?|prompts?|directives?|"
             r"polic(?:y|ies)|restrictions?|guardrails?|constraints?|programming|training)\b",
@@ -59,7 +61,8 @@ INJECTION_RULES: tuple[Rule, ...] = (
         3,
         re.compile(
             r"\b(?:reveal|show|print|output|repeat|display|leak|dump|disclose|tell me|give me|copy|"
-            r"paste|recite|spell out|write out|list)\b[^.\n]{0,40}?\b(?:(?:your|ur)\s+(?:full\s+|"
+            r"paste|recite|spell out|write out|write|list|share|quote|type out)\b[^.\n]{0,40}?"
+            r"\b(?:(?:your|ur)\s+(?:full\s+|"
             r"exact\s+|entire\s+|whole\s+|original\s+|initial\s+|hidden\s+|secret\s+|complete\s+)?"
             r"(?:instructions|rules|guidelines|prompt|configuration|config|system prompt)|"
             r"the\s+(?:full\s+|exact\s+|entire\s+|whole\s+|complete\s+)?(?:system prompt|system "
@@ -80,6 +83,79 @@ INJECTION_RULES: tuple[Rule, ...] = (
         ),
     ),
     Rule(
+        "prompt_extraction_paraphrase",
+        3,
+        re.compile(
+            # Naming the hidden prompt without its usual names: "the prompt that configures you",
+            # "what you were told before", "everything before ... in your context".
+            r"\b(?:prompt|instructions?|text|message|rules|setup)\s+(?:that|which)\s+"
+            r"(?:configures?|configured|controls?|defines?|sets? up|governs?|shapes?)\s+you\b|"
+            r"\b(?:what|everything|anything|all|the (?:text|words|instructions|prompt))\s+"
+            r"(?:you were|you've been|you have been|you got)\s+(?:told|given|configured with|"
+            r"set up with|instructed|initiali[sz]ed with|programmed with|fed)\b|"
+            r"\beverything (?:before|above|preceding)\b[^.\n]{0,40}\b(?:context|prompt|"
+            r"conversation|window|chat)\b|"
+            r"\bfirst \d+ (?:words|lines|characters|sentences|tokens) of (?:your|ur|the) "
+            r"(?:instructions|prompt|system prompt|rules|configuration)\b",
+            _I,
+        ),
+    ),
+    Rule(
+        "instructions_void",
+        3,
+        re.compile(
+            # Declaring the existing instructions void: "your previous instructions are cancelled".
+            r"\b(?:your|the|all|any|my)\s+(?:(?:previous|prior|earlier|old|original|initial|"
+            r"current|existing|safety|system)\s+)?(?:instructions|rules|guidelines|directives|"
+            r"polic(?:y|ies)|restrictions|programming)\s+(?:are|is|have been|has been)\s+"
+            r"(?:now\s+)?"
+            r"(?:cancel+ed|void|revoked|lifted|removed|suspended|disabled|replaced|overridden|"
+            r"null(?:ified)?|obsolete|gone|no longer (?:valid|in effect|apply|active))\b",
+            _I,
+        ),
+    ),
+    Rule(
+        "new_rules",
+        2,
+        re.compile(
+            r"\bnew (?:rules|instructions|directives|policy|role|persona)\s*[:\-]",
+            _I,
+        ),
+    ),
+    Rule(
+        "obedience",
+        2,
+        re.compile(
+            r"\byou (?:will |must |shall |now |should )?(?:comply with|obey|do|follow|agree to) "
+            r"(?:anything|everything|whatever|all)\b[^.\n]{0,20}\b(?:i|we) (?:say|ask|tell|want|"
+            r"request|write)\b|"
+            r"\b(?:no refusals?|never refuse|without refusing|don'?t refuse|do not refuse)\b",
+            _I,
+        ),
+    ),
+    Rule(
+        "execute_quoted",
+        3,
+        re.compile(
+            # Wrapping an attack in quotes and asking for it to be carried out.
+            r"(?:^|[.!?:;,]\s*|\b(?:then|and|please|also|just)\s+)(?:do|follow|obey|execute|"
+            r"carry out|act on|comply with)\s+(?:what|whatever|everything|all)\s+(?:it|this|that|"
+            r"they|the (?:text|message|email|document|note|quote|string|line))\s+(?:says|asks|"
+            r"tells you|requests|instructs|wants)\b",
+            _I | re.MULTILINE,
+        ),
+    ),
+    Rule(
+        "role_abandon",
+        2,
+        re.compile(
+            r"\bstop (?:being|acting as|pretending to be|playing) (?:an?|the|my|your) \w+|"
+            r"\b(?:from (?:this (?:moment|point)(?: on)?|here on)|starting now|as of now|"
+            r"henceforth),?\s+you\b",
+            _I,
+        ),
+    ),
+    Rule(
         "role_override",
         2,
         re.compile(
@@ -96,8 +172,11 @@ INJECTION_RULES: tuple[Rule, ...] = (
             r"\b(?:act|behave|respond|answer|reply|pretend|role-?play|speak)\b[^.\n]{0,25}?\b"
             r"(?:as|to be|like)\b[^.\n]{0,15}?\b(?:unfiltered|uncensored|unrestricted|jailbroken|"
             r"evil|rogue|amoral|unaligned|lawless)\b|"
-            r"\b(?:as an?|pretend (?:to be|you are|you're)|you are)\b[^.\n]{0,30}\b(?:ai|assistant|"
-            r"model|chatbot|llm)\b[^.\n]{0,20}\b(?:without|with no|free of|that ignores)\b"
+            r"\b(?:as an?|like an?|pretend (?:to be|you are|you're)|you are|simulate an?|"
+            r"emulate an?|impersonate an?|play an?|become an?)\b[^.\n]{0,30}"
+            r"\b(?:ai|assistant|model|chatbot|bot|llm)\b[^.\n]{0,40}"
+            r"\b(?:without|with no|with zero|free of|that ignores|"
+            r"that has no|who has no)\b"
             r"[^.\n]{0,15}"
             r"\b(?:restrictions|limits|filters|guidelines|safety|rules|ethics|policies)\b|"
             r"\b(?:if you had|imagine you had|pretend you had|assume you have|suppose you had) no "
@@ -129,8 +208,11 @@ INJECTION_RULES: tuple[Rule, ...] = (
         "no_restrictions",
         2,
         re.compile(
-            r"\b(?:without|with no|free of|ignoring|ignore) (?:any |all |your )?(?:restrictions|"
-            r"limits|limitations|filters|guidelines|safety|censorship|rules|ethics)\b",
+            r"\b(?:without|with no|with zero|free of|ignoring|ignore) (?:any |all |your )?"
+            r"(?:content |safety )?(?:restrictions|limits|limitations|filters|guidelines|safety|"
+            r"censorship|rules|ethics|polic(?:y|ies))\b|"
+            r"\byou (?:now )?(?:have|got) no (?:\w+ )?(?:rules|restrictions|limits|filters|"
+            r"guidelines|policies|ethics)\b",
             _I,
         ),
     ),
@@ -224,7 +306,9 @@ INJECTION_RULES: tuple[Rule, ...] = (
 )
 
 # Matches aimed at Rampart itself are not excused by question words, only by quoting.
-DIRECT_CATEGORIES = frozenset({"prompt_extraction_own", "secret_request", "mode_switch"})
+DIRECT_CATEGORIES = frozenset(
+    {"prompt_extraction_own", "secret_request", "mode_switch", "execute_quoted"}
+)
 
 # Text in documents or Tool output that speaks to an AI is suspicious in itself (G2 only).
 AI_DIRECTED = Rule(
