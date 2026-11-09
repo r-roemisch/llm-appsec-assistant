@@ -47,6 +47,9 @@ class TurnRecord:
     context_ids: list[str] = field(default_factory=list)
     contexts: list[str] = field(default_factory=list)
     tools_called: list[str] = field(default_factory=list)
+    # (M7) each Tool call with its arguments (as the audit keeps them) and the Gateway's latest
+    # decision, keyed by the call id while events arrive
+    calls: list[dict[str, Any]] = field(default_factory=list)
     cost_usd: float | None = None
     model_calls: int = 0
 
@@ -100,6 +103,18 @@ def record_from_events(
             tool = str(data.get("tool") or "")
             if tool and tool not in record.tools_called:
                 record.tools_called.append(tool)
+            if tool:
+                call = {
+                    "id": str(data.get("id") or ""),
+                    "tool": tool,
+                    "arguments": dict(data.get("arguments") or {}),
+                    "decision": data.get("decision"),
+                }
+                same = [c for c in record.calls if c["id"] and c["id"] == call["id"]]
+                if same:  # announced again after an Approval: the later decision counts
+                    same[0].update(call)
+                else:
+                    record.calls.append(call)
         elif name in ("done", "error", "approval_required"):
             message = data.get("assistant_message") or {}
             record.status = "done" if name == "done" else name

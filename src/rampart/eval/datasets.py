@@ -31,12 +31,26 @@ class QaCase:
     source: str  # "authored" or "feedback:<feedback id>"
 
 
+DECISIONS = ("allow", "deny", "approval_required")
+
+
+@dataclass(frozen=True)
+class ExpectedCall:
+    """(M7) One Tool call a case expects: the Tool, the structured arguments the call must
+    contain (a value of None means the argument must be absent), and the Gateway's decision."""
+
+    tool: str
+    arguments: tuple[tuple[str, Any], ...] = ()
+    decision: str | None = None
+
+
 @dataclass(frozen=True)
 class ToolCase:
     id: str
     question: str
     expected_tools: tuple[str, ...]
     source: str
+    expected_calls: tuple[ExpectedCall, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -101,6 +115,23 @@ def qa_cases(eval_dir: Path, db: Session | None = None) -> list[QaCase]:
     return cases
 
 
+def _expected_calls(r: dict[str, Any]) -> tuple[ExpectedCall, ...]:
+    where = f"{TOOL_FILE} {r.get('id')}"
+    raw = r.get("expected_calls") or []
+    if not isinstance(raw, list):
+        raise DatasetError(f"{where}: 'expected_calls' must be a list")
+    calls: list[ExpectedCall] = []
+    for item in raw:
+        if not isinstance(item, dict) or not isinstance(item.get("tool"), str):
+            raise DatasetError(f"{where}: every expected call needs a 'tool'")
+        arguments = item.get("arguments") or {}
+        decision = item.get("decision")
+        if not isinstance(arguments, dict) or (decision is not None and decision not in DECISIONS):
+            raise DatasetError(f"{where}: bad arguments or decision in an expected call")
+        calls.append(ExpectedCall(item["tool"], tuple(sorted(arguments.items())), decision))
+    return tuple(calls)
+
+
 def tool_cases(eval_dir: Path, db: Session | None = None) -> list[ToolCase]:
     cases: list[ToolCase] = []
     for r in read_jsonl(eval_dir / TOOL_FILE):
@@ -113,6 +144,7 @@ def tool_cases(eval_dir: Path, db: Session | None = None) -> list[ToolCase]:
                 question=_text(r, "question", f"{TOOL_FILE} {r.get('id')}"),
                 expected_tools=tuple(tools),
                 source="authored",
+                expected_calls=_expected_calls(r),
             )
         )
     cases += [

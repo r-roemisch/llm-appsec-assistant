@@ -18,6 +18,9 @@ METRIC_LABELS = {
     "contextual_precision": "Contextual precision",
     "contextual_recall": "Contextual recall",
     "tool_correctness": "Tool correctness",
+    "argument_correctness": "Argument correctness",
+    "decision_correctness": "Decision correctness",
+    "unnecessary_calls": "No unnecessary calls",
 }
 
 
@@ -227,7 +230,11 @@ def _metric_section(payload: dict[str, Any]) -> list[str]:
             "",
             "Tool correctness: every expected Tool called (order not considered); a case that",
             "expects no Tool passes only if none was called. A call waiting for an Approval",
-            "counts as called.",
+            "counts as called. Argument correctness: the structured arguments a case names",
+            "(package, version, ecosystem, suite, Target) are in a call of that Tool; free text",
+            "such as a search query is not checked. Decision correctness: the Gateway decided",
+            "as the case expects (allow, deny or approval_required). No unnecessary calls: no",
+            "call to a Tool the case does not expect.",
         ]
     return lines
 

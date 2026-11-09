@@ -119,6 +119,9 @@ const METRIC_LABELS: Record<string, string> = {
   contextual_precision: "Contextual precision",
   contextual_recall: "Contextual recall",
   tool_correctness: "Tool correctness",
+  argument_correctness: "Argument correctness",
+  decision_correctness: "Decision correctness",
+  unnecessary_calls: "No unnecessary calls",
 };
 const METRIC_ORDER = Object.keys(METRIC_LABELS);
 

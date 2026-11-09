@@ -814,7 +814,8 @@ export interface EvalRunOut {
   case_limit: number | null;
   /**
    * qa: faithfulness, answer_relevancy, contextual_precision, contextual_recall;
-   * tool: tool_correctness; guard: both labelled sets.
+   * tool: tool_correctness and (M7) argument_correctness, decision_correctness,
+   * unnecessary_calls; guard: both labelled sets.
    */
   metrics: Record<string, DeepEvalMetricSummary> | GuardRunMetrics | null;
   error: string | null;

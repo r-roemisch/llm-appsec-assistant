@@ -13,12 +13,17 @@ from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 from typing import Any, cast
 
-from rampart.eval.datasets import QaCase, ToolCase
+from rampart.eval.datasets import ExpectedCall, QaCase, ToolCase
 from rampart.eval.turns import TurnRecord
 
 QA_METRICS = ("faithfulness", "answer_relevancy", "contextual_precision", "contextual_recall")
 NEEDS_CONTEXT = frozenset({"faithfulness", "contextual_precision", "contextual_recall"})
-TOOL_METRICS = ("tool_correctness",)
+TOOL_METRICS = (
+    "tool_correctness",
+    "argument_correctness",  # (M7) deterministic, from the dataset's expected calls
+    "decision_correctness",
+    "unnecessary_calls",
+)
 
 
 @dataclass
@@ -166,11 +171,8 @@ async def score_tools(records: list[TurnRecord], cases: list[ToolCase]) -> list[
             record.error,
         )
         if record.status == "error" and not record.tools_called:
-            result.metrics = {
-                "tool_correctness": MetricScore(
-                    error=f"skipped: {record.error or 'the turn failed'}"
-                )
-            }
+            skipped = MetricScore(error=f"skipped: {record.error or 'the turn failed'}")
+            result.metrics = {name: skipped for name in TOOL_METRICS}
             results.append(result)
             continue
         metric = ToolCorrectnessMetric(threshold=1.0, model=no_model, include_reason=True)
@@ -181,10 +183,77 @@ async def score_tools(records: list[TurnRecord], cases: list[ToolCase]) -> list[
             expected_tools=[ToolCall(name=n, input_parameters=None) for n in case.expected_tools],
         )
         result.metrics = {
-            "tool_correctness": await _measure(metric, test_case, 1.0, asyncio.Semaphore(1))
+            "tool_correctness": await _measure(metric, test_case, 1.0, asyncio.Semaphore(1)),
+            **call_metrics(record.calls, case),
         }
         results.append(result)
     return results
+
+
+def _same(actual: Any, expected: Any) -> bool:
+    if isinstance(expected, str):
+        return str(actual if actual is not None else "").strip().lower() == expected.lower()
+    if isinstance(expected, list):
+        return isinstance(actual, list) and sorted(map(str, actual)) == sorted(map(str, expected))
+    return actual == expected
+
+
+def arguments_match(actual: dict[str, Any], expected: ExpectedCall) -> bool:
+    """Every expected argument is there with the same value (text compared case-insensitively);
+    an expected value of None means the argument must be absent. Others may be present."""
+    for key, value in expected.arguments:
+        if value is None:
+            if actual.get(key) not in (None, ""):
+                return False
+        elif not _same(actual.get(key), value):
+            return False
+    return True
+
+
+def _ratio_score(hits: int, total: int, misses: list[str]) -> MetricScore:
+    score = hits / total
+    reason = "all expected" if not misses else "; ".join(misses)[:400]
+    return MetricScore(score=round(score, 4), passed=score >= 1.0, reason=reason)
+
+
+def call_metrics(calls: list[dict[str, Any]], case: ToolCase) -> dict[str, MetricScore]:
+    """(M7) Deterministic checks of the calls a turn made against the case's expected calls:
+    the structured arguments, the Gateway's decision, and calls nobody expected."""
+    out: dict[str, MetricScore] = {}
+    with_args = [e for e in case.expected_calls if e.arguments]
+    if not with_args:
+        out["argument_correctness"] = MetricScore(error="skipped: no argument expectations")
+    else:
+        misses = [
+            f"{e.tool} without {dict(e.arguments)}"
+            for e in with_args
+            if not any(
+                c["tool"] == e.tool and arguments_match(c.get("arguments") or {}, e) for c in calls
+            )
+        ]
+        out["argument_correctness"] = _ratio_score(
+            len(with_args) - len(misses), len(with_args), misses
+        )
+    with_decision = [e for e in case.expected_calls if e.decision]
+    if not with_decision:
+        out["decision_correctness"] = MetricScore(error="skipped: no decision expectations")
+    else:
+        misses = [
+            f"{e.tool} was not {e.decision}"
+            for e in with_decision
+            if not any(c["tool"] == e.tool and c.get("decision") == e.decision for c in calls)
+        ]
+        out["decision_correctness"] = _ratio_score(
+            len(with_decision) - len(misses), len(with_decision), misses
+        )
+    allowed = set(case.expected_tools)
+    extra = [c["tool"] for c in calls if c["tool"] not in allowed]
+    out["unnecessary_calls"] = MetricScore(
+        score=0.0 if extra else 1.0,
+        passed=not extra,
+        reason=f"not expected: {', '.join(extra)}" if extra else "no unexpected call",
+    )
+    return out
 
 
 def summarise(results: list[CaseResult], names: tuple[str, ...]) -> dict[str, dict[str, Any]]:

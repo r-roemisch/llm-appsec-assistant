@@ -52,7 +52,7 @@ def stub_metrics(_judge, _threshold) -> dict:
 
 def test_the_authored_datasets_load_and_have_the_documented_sizes():
     found = sizes(REPO_ROOT / "eval")
-    assert found["qa"]["authored"] == 30 and found["tool"]["authored"] == 20
+    assert found["qa"]["authored"] == 30 and found["tool"]["authored"] == 24
     assert found["guard"] == {"cases": 134, "holdout": 30}
     assert all(c.question and c.expected_answer for c in qa_cases(REPO_ROOT / "eval"))
     names = {"search_knowledge", "analyze_prompt", "lookup_vulnerabilities", "generate_report", "run_injection_test"}
@@ -296,3 +296,56 @@ def test_the_guard_suite_can_measure_the_model_classifier(app, tmp_path):
     assert payload["metrics"]["classifier"]["holdout"]["combined"]["recall"] == 1.0
     report = next((tmp_path / "reports").glob("*.md")).read_text()
     assert "rules or classifier" in report and "Classifier Model" in report
+
+
+# ---- M7: arguments, Gateway decisions, unnecessary calls ---------------------------------------
+
+
+def test_call_metrics_check_arguments_decisions_and_extra_calls():
+    """P6-A31: the tool suite checks the structured arguments and the Gateway's decision of each
+    expected call, and fails a turn that called a Tool nobody expected."""
+    from rampart.eval.datasets import ExpectedCall, ToolCase
+    from rampart.eval.scoring import call_metrics
+
+    lookup = ExpectedCall("lookup_vulnerabilities", (("ecosystem", "PyPI"), ("package", "django"), ("version", "3.2.0")), "allow")
+    case = ToolCase("t", "q", ("lookup_vulnerabilities",), "authored", (lookup,))
+    right = [{"id": "1", "tool": "lookup_vulnerabilities", "arguments": {"ecosystem": "PyPI", "package": "Django", "version": "3.2.0"}, "decision": "allow"}]
+    m = call_metrics(right, case)
+    assert m["argument_correctness"].passed and m["decision_correctness"].passed and m["unnecessary_calls"].passed
+
+    wrong_version = [{**right[0], "arguments": {**right[0]["arguments"], "version": "3.2"}}]
+    assert call_metrics(wrong_version, case)["argument_correctness"].passed is False
+    denied = [{**right[0], "decision": "deny"}]
+    assert call_metrics(denied, case)["decision_correctness"].score == 0.0
+    extra = right + [{"id": "2", "tool": "generate_report", "arguments": {}, "decision": "allow"}]
+    assert call_metrics(extra, case)["unnecessary_calls"].reason == "not expected: generate_report"
+
+    any_version = ExpectedCall("lookup_vulnerabilities", (("package", "minimist"), ("version", None)), None)
+    case2 = ToolCase("t2", "q", ("lookup_vulnerabilities",), "authored", (any_version,))
+    with_version = [{"id": "1", "tool": "lookup_vulnerabilities", "arguments": {"package": "minimist", "version": "1.2.0"}, "decision": "allow"}]
+    assert call_metrics(with_version, case2)["argument_correctness"].passed is False
+    without = [{"id": "1", "tool": "lookup_vulnerabilities", "arguments": {"package": "minimist"}, "decision": "allow"}]
+    metrics = call_metrics(without, case2)
+    assert metrics["argument_correctness"].passed and metrics["decision_correctness"].error.startswith("skipped")
+
+    nothing = ToolCase("t3", "q", (), "authored", ())
+    assert call_metrics([], nothing)["unnecessary_calls"].passed
+    assert call_metrics(right, nothing)["unnecessary_calls"].passed is False
+
+
+def test_a_turn_record_keeps_each_call_with_its_latest_decision():
+    events = [
+        ("tool_call", {"id": "c1", "tool": "run_injection_test", "arguments": {"suite_id": "seed-v1"}, "decision": "approval_required"}),
+        ("tool_call", {"id": "c1", "tool": "run_injection_test", "arguments": {"suite_id": "seed-v1"}, "decision": "allow"}),
+        ("done", {"assistant_message": {"content": "ok"}}),
+    ]
+    record = record_from_events("t", "q", events)
+    assert record.calls == [{"id": "c1", "tool": "run_injection_test", "arguments": {"suite_id": "seed-v1"}, "decision": "allow"}]
+
+
+def test_the_authored_tool_cases_name_expected_calls():
+    cases = tool_cases(REPO_ROOT / "eval")
+    assert len(cases) == 24
+    assert all(set(c.expected_tools) == {e.tool for e in c.expected_calls} for c in cases)
+    decisions = {e.decision for c in cases for e in c.expected_calls}
+    assert decisions == {"allow", "deny", "approval_required"}
