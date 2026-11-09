@@ -3,7 +3,7 @@
 Capture only. Feedback is stored with the answer's trace id and the Tools it used, forwarded as
 a score to the trace (Langfuse, or the local JSONL trace log), listed for admins, and can be
 turned into an Evaluation Case by an admin. Nothing here reads or writes policy, Guards, Slots,
-prompts or retrieval; ``rampart.admin.digest`` lets a test prove it (A18).
+prompts or retrieval; ``tests/test_feedback.py`` fingerprints both to prove it (A18).
 """
 
 from __future__ import annotations
