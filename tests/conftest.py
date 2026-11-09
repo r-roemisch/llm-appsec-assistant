@@ -11,14 +11,14 @@ from helpers import (
     FakeEmbedderFactory,
     GraderScript,
     RecordingFactory,
+    StaticProbe,
     ingest_offline,
     inprocess_client_factory,
 )
 from rampart.app import create_app
-from rampart.catalog.providers import StaticProbe
-from rampart.chat.scripted import ScriptedChatModel
 from rampart.config import load_settings
 from rampart.tracing import JsonlTracer
+from scripted_model import ScriptedChatModel
 
 REPO = Path(__file__).resolve().parents[1]
 

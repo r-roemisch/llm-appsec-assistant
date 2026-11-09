@@ -1,4 +1,4 @@
-"""A scripted stand-in chat Model for offline tests: replays fixed replies with fake usage."""
+"""A scripted stand-in chat Model for the offline tests: replays fixed replies with fake usage."""
 
 from __future__ import annotations
 

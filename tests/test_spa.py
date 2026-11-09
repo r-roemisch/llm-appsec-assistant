@@ -6,8 +6,8 @@ from fastapi.testclient import TestClient
 from langgraph.checkpoint.memory import InMemorySaver
 
 from conftest import REPO
+from helpers import StaticProbe
 from rampart.app import create_app
-from rampart.catalog.providers import StaticProbe
 from rampart.config import load_settings
 from rampart.tracing import JsonlTracer
 

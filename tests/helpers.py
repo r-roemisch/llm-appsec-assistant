@@ -13,6 +13,7 @@ import re
 import time
 from collections.abc import Callable, Sequence
 from contextlib import asynccontextmanager
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -51,6 +52,21 @@ class RecordingFactory:
             return self.grader if self.grader is not None else self.model
         self.calls.append((spec, generation))
         return self.model
+
+
+@dataclass
+class StaticProbe:
+    """A Provider probe with fixed answers: whether OpenRouter has a key, which Ollama models
+    are pulled (None means the server is unreachable)."""
+
+    openrouter: bool = False
+    ollama: set[str] | None = field(default_factory=set)
+
+    def openrouter_available(self) -> bool:
+        return self.openrouter
+
+    def ollama_models(self) -> set[str] | None:
+        return self.ollama
 
 
 def chat_default(app: FastAPI) -> str:

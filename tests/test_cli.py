@@ -110,8 +110,8 @@ def test_the_server_prunes_traces_at_start_only_when_configured(tmp_path):
     from fastapi.testclient import TestClient
     from langgraph.checkpoint.memory import InMemorySaver
 
+    from helpers import StaticProbe
     from rampart.app import create_app
-    from rampart.catalog.providers import StaticProbe
     from rampart.config import load_settings
 
     traces = tmp_path / "data" / "traces"

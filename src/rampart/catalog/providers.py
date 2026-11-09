@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass, field
 from typing import Protocol
 
 import httpx
@@ -17,20 +16,6 @@ class ProviderProbe(Protocol):
     def ollama_models(self) -> set[str] | None:
         """Names of pulled Ollama models, or None when the server is unreachable."""
         ...
-
-
-@dataclass
-class StaticProbe:
-    """Fixed answers, for tests and offline runs."""
-
-    openrouter: bool = False
-    ollama: set[str] | None = field(default_factory=set)
-
-    def openrouter_available(self) -> bool:
-        return self.openrouter
-
-    def ollama_models(self) -> set[str] | None:
-        return self.ollama
 
 
 class LiveProbe:
