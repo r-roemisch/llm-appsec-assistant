@@ -1,5 +1,11 @@
 # Rampart: design record
 
+**Historical record (status note, 2026-11-09).** This is the design interview as it stood on
+2026-11-05, kept unchanged below. The user confirmed it on 2026-11-06, `docs/SPEC.md` (version
+1.1) was revised from it, and all six milestones were built afterwards. For current behaviour
+read `docs/SPEC.md`, `docs/API.md` and the guides; where this record and later decisions differ
+(recorded in `docs/SPEC.md` section 20 and the milestone reports), the later decisions apply.
+
 **Status (2026-11-05).** Design interview complete: 34 questions asked over four rounds, all answered. The shared understanding below was presented to the user, who had to leave before confirming it. Nothing has been built. `CONTEXT.md` in the repository root holds the glossary (20 terms). The original specification is `../P6_llm_application_security_assistant.md` (version 1.0) and will be revised to version 1.1 once the user confirms.
 
 **Resume steps.**

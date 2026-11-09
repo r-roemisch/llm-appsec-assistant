@@ -13,6 +13,12 @@ import { NotFoundPage } from "@/pages/NotFoundPage";
 // Rarely visited pages load on demand.
 const AccountPage = lazy(() => import("@/pages/AccountPage").then((module) => ({ default: module.AccountPage })));
 const AdminPage = lazy(() => import("@/pages/AdminPage").then((module) => ({ default: module.AdminPage })));
+const KnowledgePage = lazy(() => import("@/pages/KnowledgePage").then((module) => ({ default: module.KnowledgePage })));
+const ProfilePage = lazy(() => import("@/pages/ProfilePage").then((module) => ({ default: module.ProfilePage })));
+const TargetsPage = lazy(() => import("@/pages/TargetsPage").then((module) => ({ default: module.TargetsPage })));
+const HelpPage = lazy(() => import("@/pages/HelpPage").then((module) => ({ default: module.HelpPage })));
+const ReportsPage = lazy(() => import("@/pages/ReportsPage").then((module) => ({ default: module.ReportsPage })));
+const ReportPage = lazy(() => import("@/pages/ReportPage").then((module) => ({ default: module.ReportPage })));
 
 export function App() {
   return (
@@ -24,6 +30,12 @@ export function App() {
           <Route element={<AppShell />}>
             <Route path="/" element={<ConversationPage />} />
             <Route path="/c/:id" element={<ConversationPage />} />
+            <Route path="/knowledge" element={<KnowledgePage />} />
+            <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/targets" element={<TargetsPage />} />
+            <Route path="/help" element={<HelpPage />} />
+            <Route path="/reports" element={<ReportsPage />} />
+            <Route path="/reports/:id" element={<ReportPage />} />
             <Route path="/account" element={<AccountPage />} />
             <Route path="/admin" element={<AdminPage />} />
           </Route>

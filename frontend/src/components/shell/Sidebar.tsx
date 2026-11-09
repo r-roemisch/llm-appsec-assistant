@@ -3,6 +3,7 @@ import { Link } from "react-router";
 
 import { Brand } from "@/components/common/Brand";
 import { ConversationList } from "@/components/shell/ConversationList";
+import { SidebarNav } from "@/components/shell/SidebarNav";
 import { UserMenu } from "@/components/shell/UserMenu";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -33,6 +34,8 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           </Link>
         </Button>
       </div>
+      <SidebarNav onNavigate={onNavigate} />
+      <h2 className="shrink-0 border-t px-4 pt-3 pb-1.5 text-xs font-medium text-muted-foreground">Conversations</h2>
       <ScrollArea className="min-h-0 flex-1 [&_[data-slot=scroll-area-viewport]>div]:block!">
         <ConversationList onNavigate={onNavigate} />
       </ScrollArea>

@@ -1,4 +1,4 @@
-from helpers import Api, make_user
+from helpers import Api, chat_default, make_user
 
 
 def test_usage_totals_match_the_recorded_costs(app):
@@ -18,7 +18,7 @@ def test_usage_totals_match_the_recorded_costs(app):
     assert mine["messages"] == 2 and mine["input_tokens"] == 24 and mine["output_tokens"] == 14
     assert round(mine["cost_usd"], 9) == 0.002
     assert mine["by_model"] == [
-        {"model_id": "anthropic/claude-haiku-5.5", "messages": 2, "input_tokens": 24,
+        {"model_id": chat_default(app), "messages": 2, "input_tokens": 24,
          "output_tokens": 14, "cost_usd": 0.002}
     ]
     assert round(bob.get("/api/usage/me").json()["cost_usd"], 9) == 0.001

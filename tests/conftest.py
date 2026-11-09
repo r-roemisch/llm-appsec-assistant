@@ -2,11 +2,18 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 from langgraph.checkpoint.memory import InMemorySaver
 
-from helpers import RecordingFactory
+from helpers import (
+    FakeEmbedderFactory,
+    GraderScript,
+    RecordingFactory,
+    ingest_offline,
+    inprocess_client_factory,
+)
 from rampart.app import create_app
 from rampart.catalog.providers import StaticProbe
 from rampart.chat.scripted import ScriptedChatModel
@@ -26,6 +33,7 @@ def settings(tmp_path: Path):
         langfuse_public_key=None,
         langfuse_secret_key=None,
         frontend_dist=tmp_path / "no-dist",
+        plugins_catalog=tmp_path / "plugins-catalog.yaml",  # absent unless a test writes it
     )
 
 
@@ -35,8 +43,18 @@ def scripted() -> ScriptedChatModel:
 
 
 @pytest.fixture
-def factory(scripted: ScriptedChatModel) -> RecordingFactory:
-    return RecordingFactory(scripted)
+def grader_script() -> GraderScript:
+    return GraderScript()
+
+
+@pytest.fixture
+def grader(grader_script: GraderScript) -> ScriptedChatModel:
+    return ScriptedChatModel(responder=grader_script, replies=["(unexpected grader prompt)"])
+
+
+@pytest.fixture
+def factory(scripted: ScriptedChatModel, grader: ScriptedChatModel) -> RecordingFactory:
+    return RecordingFactory(scripted, grader=grader)
 
 
 @pytest.fixture
@@ -52,6 +70,37 @@ def app(settings, factory, probe):
         model_factory=factory,
         checkpointer=InMemorySaver(),
         tracer=JsonlTracer(settings.traces_dir),
+        plugin_client_factory=inprocess_client_factory(),
     )
+    application.state.osv.transport = httpx.MockTransport(lambda request: httpx.Response(503))
     with TestClient(application):  # runs the lifespan once for every client in the test
+        yield application
+
+
+@pytest.fixture
+def kb_app(app):
+    """The app with fixtures, primers and guides ingested; keyword search only (no embedder)."""
+    ingest_offline(app)
+    return app
+
+
+@pytest.fixture
+def embedder_factory() -> FakeEmbedderFactory:
+    return FakeEmbedderFactory()
+
+
+@pytest.fixture
+def hybrid_app(settings, factory, probe, embedder_factory):
+    """Like kb_app, with deterministic offline embeddings in a real Chroma store."""
+    application = create_app(
+        settings,
+        probe=probe,
+        model_factory=factory,
+        checkpointer=InMemorySaver(),
+        tracer=JsonlTracer(settings.traces_dir),
+        embedder_factory=embedder_factory,
+    )
+    application.state.osv.transport = httpx.MockTransport(lambda request: httpx.Response(503))
+    with TestClient(application):
+        ingest_offline(application, embed=True)
         yield application

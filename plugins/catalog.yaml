@@ -1,0 +1,25 @@
+# Rampart Plugin catalog.
+#
+# Only this file, edited on the server, says which MCP servers exist and how to start them. The
+# admin UI can enable a Plugin, review its Tool definitions and accept them; it can never add a
+# Plugin or change a command, and nothing a Model reads can either. Rampart re-reads this file
+# when it changes.
+#
+# Keys per entry: title, description, command, args, timeout_seconds (optional, 1-120).
+# Placeholders: {python} is the interpreter running Rampart; {plugins_dir} is this folder.
+# A Plugin's process gets only a minimal environment (PATH, HOME, ...): no Rampart credentials.
+
+plugins:
+  secret_scanner:
+    title: Secret scanner
+    description: Finds credential-like strings in text and reports them masked. A fixture server shipped with Rampart.
+    command: "{python}"
+    args: ["{plugins_dir}/secret_scanner/server.py"]
+
+  fixture_docs:
+    title: Fixture docs
+    description: Read-only access to a few synthetic internal security notes. A fixture server shipped with Rampart.
+    command: "{python}"
+    args: ["{plugins_dir}/fixture_docs/server.py"]
+    # To see drift detection: accept this Plugin, then point it at the modified copy and refresh.
+    # args: ["{plugins_dir}/fixture_docs_drifted/server.py"]

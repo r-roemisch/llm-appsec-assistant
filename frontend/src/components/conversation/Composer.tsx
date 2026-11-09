@@ -16,10 +16,27 @@ interface ComposerProps {
   disabled?: boolean;
   /** The Model picker, rendered in the toolbar. */
   modelPicker: ReactNode;
+  /** More toolbar controls after the Model picker, such as the help mode toggle. */
+  controls?: ReactNode;
+  /** A line above the input, such as the help mode badge. */
+  notice?: ReactNode;
+  placeholder?: string;
   autoFocus?: boolean;
 }
 
-export function Composer({ value, onChange, onSend, onStop, streaming, disabled, modelPicker, autoFocus }: ComposerProps) {
+export function Composer({
+  value,
+  onChange,
+  onSend,
+  onStop,
+  streaming,
+  disabled,
+  modelPicker,
+  controls,
+  notice,
+  placeholder = "Ask about the security of your LLM application",
+  autoFocus,
+}: ComposerProps) {
   const content = value.trim();
   const tooLong = value.length > MAX_MESSAGE_LENGTH;
   const canSend = !streaming && !disabled && content.length > 0 && !tooLong;
@@ -44,19 +61,21 @@ export function Composer({ value, onChange, onSend, onStop, streaming, disabled,
   return (
     <form onSubmit={onSubmit} className="shrink-0 px-3 pt-2 pb-3 md:px-6 md:pb-4">
       <div className="mx-auto max-w-3xl rounded-xl border bg-card transition-colors focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/25">
+        {notice}
         <Textarea
           value={value}
           onChange={(event) => onChange(event.target.value)}
           onKeyDown={onKeyDown}
-          placeholder="Ask about the security of your LLM application"
+          placeholder={placeholder}
           rows={1}
           disabled={streaming || disabled}
           autoFocus={autoFocus}
           aria-label="Message"
           className="max-h-60 min-h-11 resize-none border-0 bg-transparent px-4 pt-3 pb-1 text-[15px] shadow-none focus-visible:border-transparent focus-visible:ring-0 md:text-[15px] dark:bg-transparent"
         />
-        <div className="flex items-center gap-2 px-2 pb-2">
+        <div className="flex min-w-0 items-center gap-2 px-2 pb-2">
           {modelPicker}
+          {controls}
           <span className="hidden text-xs text-muted-foreground lg:inline">Enter sends, Shift+Enter adds a line</span>
           <div className="ml-auto flex items-center gap-2">
             {value.length > MAX_MESSAGE_LENGTH * 0.9 ? (

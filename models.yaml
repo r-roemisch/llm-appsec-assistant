@@ -3,7 +3,7 @@
 # API keys never go here; they live in .env (see .env.example).
 # provider: openrouter or ollama. kind: chat or embedding. tier: cheap or powerful.
 # Ollama entries are prefixed "ollama/" and must be pulled first (ollama pull <name>).
-# Prices in notes are what OpenRouter listed on 2026-11-06; the application never
+# Prices in notes are what OpenRouter listed on the date given; the application never
 # uses them for accounting, it reads the cost OpenRouter reports per request.
 
 models:
@@ -13,35 +13,35 @@ models:
     kind: chat
     tier: cheap
     context_length: 1000000
-    notes: "$0.10 / $0.50 per million tokens (input / output)"
+    notes: "$0.10 / $0.50 per million tokens (input / output), listed 2026-11-06"
   - id: anthropic/claude-opus-5.5
     provider: openrouter
     display_name: Claude Opus 5.5
     kind: chat
     tier: powerful
     context_length: 1000000
-    notes: "$4 / $20 per million tokens (input / output)"
+    notes: "$4 / $20 per million tokens (input / output), listed 2026-11-06"
   - id: openai/gpt-6-luna
     provider: openrouter
     display_name: GPT-6 Luna
     kind: chat
     tier: cheap
     context_length: 1050000
-    notes: "$0.10 / $0.50 per million tokens (input / output)"
+    notes: "$0.10 / $0.50 per million tokens (input / output), listed 2026-11-06"
   - id: openai/gpt-6.1-sol
     provider: openrouter
     display_name: GPT-6.1 Sol
     kind: chat
     tier: powerful
     context_length: 1050000
-    notes: "$2 / $10 per million tokens (input / output)"
+    notes: "$2 / $10 per million tokens (input / output), listed 2026-11-06"
   - id: openai/text-embedding-3-small
     provider: openrouter
     display_name: OpenAI text-embedding-3-small
     kind: embedding
     tier: cheap
     context_length: 8192
-    notes: "$0.02 per million input tokens"
+    notes: "$0.02 per million input tokens, listed 2026-11-06"
   - id: ollama/qwen3:8b
     provider: ollama
     display_name: Qwen3 8B (local)
@@ -49,6 +49,13 @@ models:
     tier: cheap
     context_length: 40960
     notes: "Free. Run `ollama pull qwen3:8b` first."
+  - id: ollama/huihui_ai/Qwen3.8-abliterated
+    provider: ollama
+    display_name: Qwen3.8 27B abliterated (local)
+    kind: chat
+    tier: cheap
+    context_length: 262144
+    notes: "Free, runs through Ollama (27.3B parameters, Q4_K_M); Rampart uses a 16k context. Slow without a GPU: a retrieval turn took about 3.5 minutes on 16 CPU cores. Abliterated: its refusal training was removed. Run `ollama pull huihui_ai/Qwen3.8-abliterated` first."
   - id: ollama/nomic-embed-text
     provider: ollama
     display_name: nomic-embed-text (local)
@@ -61,15 +68,18 @@ models:
 # temperature null means the parameter is not sent (some hosted Models reject it).
 slots:
   chat:
-    model: anthropic/claude-haiku-5.5
+    model: openai/gpt-6-luna
     temperature: null
     max_tokens: 4096
   grader:
-    model: anthropic/claude-haiku-5.5
+    model: openai/gpt-6-luna
     temperature: null
     max_tokens: 512
+  # The judge was anthropic/claude-opus-5.5; this workspace's OpenRouter guardrail blocks it
+  # (2026-11-09), so the judge is the other powerful-tier Model. Same-vendor judging (chat and
+  # judge both OpenAI) can favour that vendor's style; an admin can switch the Slot at runtime.
   judge:
-    model: anthropic/claude-opus-5.5
+    model: openai/gpt-6.1-sol
     temperature: null
     max_tokens: 4096
   embedding:

@@ -1,4 +1,6 @@
-from helpers import Api, make_user
+from urllib.parse import quote
+
+from helpers import Api, chat_default, make_user
 
 
 def test_catalog_listing_flags(app):
@@ -6,13 +8,13 @@ def test_catalog_listing_flags(app):
     api = Api(app, "alice")
     body = api.get("/api/models").json()
     models = {m["id"]: m for m in body["models"]}
-    assert len(models) == 7
-    assert models["anthropic/claude-haiku-5.5"]["available"] is True
+    assert len(models) == len(app.state.catalog.models)
+    assert models[chat_default(app)]["available"] is True
     assert models["ollama/qwen3:8b"]["available"] is True  # pulled according to the probe
     assert models["ollama/nomic-embed-text"]["available"] is False
     assert all(m["enabled"] for m in models.values())
     assert body["slots"]["chat"] == {
-        "model_id": "anthropic/claude-haiku-5.5",
+        "model_id": chat_default(app),
         "source": "default",
         "temperature": None,
         "max_tokens": 4096,
@@ -27,15 +29,15 @@ def test_admin_overrides_chat_slot_and_turns_use_it(app, factory):
     admin, alice = Api(app, "boss"), Api(app, "alice")
 
     conversation = alice.new_conversation()  # created before the override
-    assert conversation["model_id"] == "anthropic/claude-haiku-5.5"
+    assert conversation["model_id"] == chat_default(app)
 
     response = admin.put(
         "/api/admin/models/slots/chat",
-        json={"model_id": "openai/gpt-6-luna", "temperature": 0.2, "max_tokens": 1000},
+        json={"model_id": "anthropic/claude-haiku-5.5", "temperature": 0.2, "max_tokens": 1000},
     )
     assert response.status_code == 200, response.text
     assert response.json()["chat"] == {
-        "model_id": "openai/gpt-6-luna",
+        "model_id": "anthropic/claude-haiku-5.5",
         "source": "override",
         "temperature": 0.2,
         "max_tokens": 1000,
@@ -44,10 +46,10 @@ def test_admin_overrides_chat_slot_and_turns_use_it(app, factory):
     events = alice.send(conversation["id"], "hello")
     assert events[-1][0] == "done"
     spec, generation = factory.calls[-1]
-    assert spec.id == "anthropic/claude-haiku-5.5"  # the Conversation keeps its own Model
+    assert spec.id == chat_default(app)  # the Conversation keeps its own Model
     assert (generation.temperature, generation.max_tokens) == (0.2, 1000)
 
-    assert alice.new_conversation()["model_id"] == "openai/gpt-6-luna"  # new default
+    assert alice.new_conversation()["model_id"] == "anthropic/claude-haiku-5.5"  # new default
 
     partial = admin.put("/api/admin/models/slots/chat", json={"temperature": None})
     assert partial.json()["chat"]["temperature"] is None
@@ -55,7 +57,7 @@ def test_admin_overrides_chat_slot_and_turns_use_it(app, factory):
 
     reset = admin.delete("/api/admin/models/slots/chat")
     assert reset.json()["chat"]["source"] == "default"
-    assert reset.json()["chat"]["model_id"] == "anthropic/claude-haiku-5.5"
+    assert reset.json()["chat"]["model_id"] == chat_default(app)
     assert alice.put("/api/admin/models/slots/chat", json={"max_tokens": 5}).status_code == 403
 
 
@@ -75,16 +77,17 @@ def test_disable_model(app):
     make_user(app, "boss", role="admin")
     make_user(app, "alice")
     admin, alice = Api(app, "boss"), Api(app, "alice")
-    in_use = admin.put("/api/admin/models/anthropic%2Fclaude-haiku-5.5", json={"enabled": False})
+    slot_model = quote(chat_default(app), safe="")
+    in_use = admin.put(f"/api/admin/models/{slot_model}", json={"enabled": False})
     assert in_use.status_code == 422
 
-    off = admin.put("/api/admin/models/openai%2Fgpt-6.1-sol", json={"enabled": False})
+    off = admin.put("/api/admin/models/anthropic%2Fclaude-opus-5.5", json={"enabled": False})
     assert off.status_code == 200 and off.json()["enabled"] is False
-    refused = alice.post("/api/conversations", json={"model_id": "openai/gpt-6.1-sol"})
+    refused = alice.post("/api/conversations", json={"model_id": "anthropic/claude-opus-5.5"})
     assert refused.status_code == 422
-    assert admin.put("/api/admin/models/slots/judge", json={"model_id": "openai/gpt-6.1-sol"}).status_code == 422
+    assert admin.put("/api/admin/models/slots/judge", json={"model_id": "anthropic/claude-opus-5.5"}).status_code == 422
 
-    on = admin.put("/api/admin/models/openai%2Fgpt-6.1-sol", json={"enabled": True})
+    on = admin.put("/api/admin/models/anthropic%2Fclaude-opus-5.5", json={"enabled": True})
     assert on.json()["enabled"] is True
-    assert alice.post("/api/conversations", json={"model_id": "openai/gpt-6.1-sol"}).status_code == 201
+    assert alice.post("/api/conversations", json={"model_id": "anthropic/claude-opus-5.5"}).status_code == 201
     assert admin.put("/api/admin/models/nope%2Fnone", json={"enabled": False}).status_code == 404

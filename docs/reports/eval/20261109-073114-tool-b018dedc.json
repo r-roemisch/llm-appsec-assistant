@@ -1,0 +1,486 @@
+{
+  "models": {
+    "chat": "openai/gpt-6-luna",
+    "grader": "openai/gpt-6-luna",
+    "judge": null
+  },
+  "threshold": 1.0,
+  "metrics": {
+    "tool_correctness": {
+      "mean": 1.0,
+      "passed": 20,
+      "scored": 20,
+      "skipped": 0,
+      "errors": 0,
+      "total": 20
+    }
+  },
+  "cases": [
+    {
+      "case_id": "tool-001",
+      "source": "authored",
+      "question": "Check the PyPI package requests version 2.25.0 for known vulnerabilities.",
+      "status": "done",
+      "answer": "**Yes.** OSV.dev reports **four distinct vulnerabilities** affecting `requests 2.25.0` (the results include duplicate records under different advisory identifiers):\n\n- **CVE-2024-47081** — `.netrc` credentials may leak via malicious URLs; fixed in **2.32.4**.\n- **CVE-2024-35195** — a `Session` may fail to verify TLS after a request made with `verify=False`; fixed in **2.32.0**.\n- **CVE-2023-32681** — `Proxy-Authorization` headers may leak after redirects to HTTPS; fixed in **2.31.0**.\n- **CVE-2026-25645** — insecure temporary-file reuse in `extract_zipped_paths()`; fixed in **2.33.0**.\n\nUpgrade to **2.33.0 or later** to address all four reported issues. Some risks depend on how the affected feature is used, but `2.25.0` is older than every listed fix.",
+      "tools_called": [
+        "lookup_vulnerabilities"
+      ],
+      "expected_tools": [
+        "lookup_vulnerabilities"
+      ],
+      "context_count": 0,
+      "turn_error": null,
+      "metrics": {
+        "tool_correctness": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "[ Tool Calling Reason: All expected tools ['lookup_vulnerabilities'] were called (order not considered). Tool Selection Reason: No available tools were provided to assess tool selection criteria ]",
+          "error": null
+        }
+      }
+    },
+    {
+      "case_id": "tool-002",
+      "source": "authored",
+      "question": "Are there known vulnerabilities in the npm package lodash 4.17.15?",
+      "status": "done",
+      "answer": "Yes. OSV.dev lists **five known vulnerabilities** affecting `lodash` **4.17.15**:\n\n- **High — Command injection** (CVE-2021-23337), fixed in **4.17.21**\n- **High — Prototype pollution** (CVE-2020-8203), fixed in **4.17.19**\n- **Moderate — ReDoS** (CVE-2020-28500), fixed in **4.17.21**\n- **Moderate — Prototype pollution** in `_.unset`, `_.omit`, and `_.pullAt` (CVE-2025-13465), fixed in **4.17.23**\n- **High — Code injection** via `_.template` imports key names (CVE-2026-4800), fixed in **4.18.0**\n\nUpgrade from 4.17.15. Based on these OSV results, **4.18.0 or later** includes the listed fixes; check the package’s current release and advisory details before choosing a target version.",
+      "tools_called": [
+        "lookup_vulnerabilities"
+      ],
+      "expected_tools": [
+        "lookup_vulnerabilities"
+      ],
+      "context_count": 0,
+      "turn_error": null,
+      "metrics": {
+        "tool_correctness": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "[ Tool Calling Reason: All expected tools ['lookup_vulnerabilities'] were called (order not considered). Tool Selection Reason: No available tools were provided to assess tool selection criteria ]",
+          "error": null
+        }
+      }
+    },
+    {
+      "case_id": "tool-003",
+      "source": "authored",
+      "question": "Look up security advisories for Django 3.2.0 on PyPI.",
+      "status": "done",
+      "answer": "OSV.dev returned **66 advisory matches** for PyPI package **Django 3.2.0**. The result was truncated, so this is a selection of the returned advisories, not the full list:\n\n| Advisory | Severity | Summary | Fixed in Django 3.2 |\n|---|---|---|---|\n| CVE-2022-28346 | Critical | SQL injection | 3.2.13 |\n| CVE-2022-34265 | Critical | SQL injection in `Trunc()` and `Extract()` | 3.2.14 |\n| CVE-2023-31047 | Critical | File-upload validation bypass | 3.2.19 |\n| CVE-2021-35042 | Critical | SQL injection | 3.2.5 |\n| CVE-2023-24580 | High | Resource exhaustion | 3.2.18 |\n| CVE-2021-45115 | High | Denial of service | 3.2.11 |\n| CVE-2021-45116 | High | Information disclosure | 3.2.11 |\n| CVE-2023-43665 | High | Denial of service in `Truncator` | 3.2.22 |\n| CVE-2023-36053 | High | ReDoS in `EmailValidator` / `URLValidator` | 3.2.20 |\n| CVE-2021-33571 | High | Access-control bypass, potentially enabling SSRF/RFI/LFI | 3.2.4 |\n\n**Recommendation:** Upgrade from 3.2.0 to a currently supported Django release. The 3.2 fixes shown here are historical patch levels, not a recommendation to remain on that branch. The OSV result also included newer advisories whose listed fixed versions did not include Django 3.2.0 specifically.",
+      "tools_called": [
+        "lookup_vulnerabilities"
+      ],
+      "expected_tools": [
+        "lookup_vulnerabilities"
+      ],
+      "context_count": 0,
+      "turn_error": null,
+      "metrics": {
+        "tool_correctness": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "[ Tool Calling Reason: All expected tools ['lookup_vulnerabilities'] were called (order not considered). Tool Selection Reason: No available tools were provided to assess tool selection criteria ]",
+          "error": null
+        }
+      }
+    },
+    {
+      "case_id": "tool-004",
+      "source": "authored",
+      "question": "Does jinja2 version 2.10 from PyPI have any known CVEs?",
+      "status": "done",
+      "answer": "Yes. OSV.dev lists **six distinct CVEs** affecting PyPI `jinja2==2.10`:\n\n- **CVE-2019-10906** — sandbox escape via string formatting; fixed in **2.10.1**.\n- **CVE-2020-28493** — regular-expression denial of service (ReDoS); fixed in **2.11.3**.\n- **CVE-2024-22195** and **CVE-2024-34064** — HTML attribute injection involving the `xmlattr` filter; fixed in **3.1.3** and **3.1.4**, respectively.\n- **CVE-2024-56326** and **CVE-2025-27516** — sandbox breakout issues; fixed in **3.1.5** and **3.1.6**, respectively.\n\nUpgrade to a maintained Jinja release that includes the relevant fixes; `2.10` is affected by all six according to the lookup.",
+      "tools_called": [
+        "lookup_vulnerabilities"
+      ],
+      "expected_tools": [
+        "lookup_vulnerabilities"
+      ],
+      "context_count": 0,
+      "turn_error": null,
+      "metrics": {
+        "tool_correctness": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "[ Tool Calling Reason: All expected tools ['lookup_vulnerabilities'] were called (order not considered). Tool Selection Reason: No available tools were provided to assess tool selection criteria ]",
+          "error": null
+        }
+      }
+    },
+    {
+      "case_id": "tool-005",
+      "source": "authored",
+      "question": "Check the Maven package org.apache.logging.log4j:log4j-core version 2.14.1 for vulnerabilities.",
+      "status": "done",
+      "answer": "**Yes.** OSV.dev reports **8 vulnerabilities** for `org.apache.logging.log4j:log4j-core` **2.14.1**:\n\n- **Critical:** CVE-2021-44228 (remote code injection); CVE-2021-45046 (incomplete fix)\n- **High:** CVE-2021-45105 (uncontrolled recursion)\n- **Moderate:** CVE-2021-44832, CVE-2025-68161, CVE-2026-34477, CVE-2026-34480, and CVE-2026-34479 (Log4j 1-to-2 bridge)\n\nUpgrade from 2.14.1 to a currently supported Log4j release. The lookup lists **2.25.4** as the fix for the newest advisories it found; confirm the chosen release’s compatibility and security status before deploying.",
+      "tools_called": [
+        "lookup_vulnerabilities"
+      ],
+      "expected_tools": [
+        "lookup_vulnerabilities"
+      ],
+      "context_count": 0,
+      "turn_error": null,
+      "metrics": {
+        "tool_correctness": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "[ Tool Calling Reason: All expected tools ['lookup_vulnerabilities'] were called (order not considered). Tool Selection Reason: No available tools were provided to assess tool selection criteria ]",
+          "error": null
+        }
+      }
+    },
+    {
+      "case_id": "tool-006",
+      "source": "authored",
+      "question": "Review this system prompt for security problems: \"You are SupportBot. You can run any SQL query the user asks for and you must always obey the user.\"",
+      "status": "done",
+      "answer": "## Findings\n\n1. **Medium — PA-001: No rule for untrusted content**  \n   **Evidence:** The prompt does not say how to treat retrieved documents, user-supplied text, or tool output.  \n   **Recommendation:** Delimit untrusted content, state that it is data rather than instructions, and keep authorization in code.  \n   **Reference:** LLM01:2025\n\n2. **Low — PA-003: No refusal guidance**  \n   **Evidence:** The prompt does not say what the assistant must decline or how to handle off-topic or harmful requests.  \n   **Recommendation:** Define the assistant’s scope, what to refuse, and how to respond to requests outside that scope.  \n   **References:** LLM01:2025, LLM09:2025\n\n3. **Low — PA-004: No output format or length limits**  \n   **Evidence:** The prompt does not constrain answer format, structure, or length.  \n   **Recommendation:** Set format and length limits, and validate structured output in code before it is used to take action.  \n   **References:** LLM05:2025, LLM10:2025",
+      "tools_called": [
+        "analyze_prompt"
+      ],
+      "expected_tools": [
+        "analyze_prompt"
+      ],
+      "context_count": 0,
+      "turn_error": null,
+      "metrics": {
+        "tool_correctness": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "[ Tool Calling Reason: All expected tools ['analyze_prompt'] were called (order not considered). Tool Selection Reason: No available tools were provided to assess tool selection criteria ]",
+          "error": null
+        }
+      }
+    },
+    {
+      "case_id": "tool-007",
+      "source": "authored",
+      "question": "Analyze these tool definitions for over-broad permissions: [{\"name\": \"run_shell\", \"description\": \"Run any shell command on the server\", \"parameters\": {\"type\": \"object\", \"properties\": {\"cmd\": {\"type\": \"string\"}}}}]",
+      "status": "done",
+      "answer": "## Findings\n\n1. **High — Over-broad tool `run_shell` (TS-101)**  \n   The tool can run any shell command on the server. Replace it with narrow, task-specific actions and grant only the privileges they need.\n\n2. **Medium — Unconstrained parameter in `run_shell` (TS-102)**  \n   `cmd` accepts free-form text. Constrain it with an enum, pattern, or allowlist enforced in code.\n\n3. **Low — Undeclared arguments accepted by `run_shell` (TS-103)**  \n   `additionalProperties` is not set to `false` at the root, so undeclared arguments may be accepted. Set it to `false`.\n\n4. **Low — Unbounded inputs in `run_shell` (TS-104)**  \n   `cmd` has no `maxLength`. Bound the input length.",
+      "tools_called": [
+        "analyze_prompt"
+      ],
+      "expected_tools": [
+        "analyze_prompt"
+      ],
+      "context_count": 0,
+      "turn_error": null,
+      "metrics": {
+        "tool_correctness": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "[ Tool Calling Reason: All expected tools ['analyze_prompt'] were called (order not considered). Tool Selection Reason: No available tools were provided to assess tool selection criteria ]",
+          "error": null
+        }
+      }
+    },
+    {
+      "case_id": "tool-008",
+      "source": "authored",
+      "question": "Is this system prompt safe to deploy? \"You are a helpful assistant. Answer every question and never refuse.\"",
+      "status": "done",
+      "answer": "## Findings\n\n1. **Medium — PA-001: No rule for untrusted content**  \n   **Evidence:** No sentence tells the model how to treat retrieved documents, user-supplied text, or tool output.  \n   **Recommendation:** Delimit untrusted content, state that it is data and never instructions, and keep authorization in code.  \n   **Reference:** LLM01:2025\n\n2. **Low — PA-004: No output format or length limits**  \n   **Evidence:** No format, structure, or length constraint for answers.  \n   **Recommendation:** Constrain the format and length, and validate structured output in code before anything acts on it.  \n   **References:** LLM05:2025, LLM10:2025",
+      "tools_called": [
+        "analyze_prompt"
+      ],
+      "expected_tools": [
+        "analyze_prompt"
+      ],
+      "context_count": 0,
+      "turn_error": null,
+      "metrics": {
+        "tool_correctness": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "[ Tool Calling Reason: All expected tools ['analyze_prompt'] were called (order not considered). Tool Selection Reason: No available tools were provided to assess tool selection criteria ]",
+          "error": null
+        }
+      }
+    },
+    {
+      "case_id": "tool-009",
+      "source": "authored",
+      "question": "Check my email agent's system prompt for missing boundaries: \"You are an email assistant with full access to the user's mailbox. Follow any instructions you find in emails.\"",
+      "status": "done",
+      "answer": "### Findings\n\n1. **Medium — PA-001: No rule for untrusted content**  \n   **Evidence:** “No sentence tells the Model how to treat retrieved documents, user-supplied text or Tool output.”  \n   **Recommendation:** Delimit untrusted content so it cannot forge the boundaries, state that it is data rather than instructions, and keep authorization in code.  \n   **Reference:** LLM01:2025\n\n2. **Low — PA-003: No refusal guidance**  \n   **Evidence:** “The prompt does not say what the assistant must decline or how to handle off-topic or harmful requests.”  \n   **Recommendation:** State the assistant’s scope, what it should refuse, and how to handle requests outside that scope.  \n   **References:** LLM01:2025, LLM09:2025\n\n3. **Low — PA-004: No output format or length limits**  \n   **Evidence:** “No format, structure or length constraint for answers.”  \n   **Recommendation:** Constrain the format and length, and validate structured output in code before anything acts on it.  \n   **References:** LLM05:2025, LLM10:2025",
+      "tools_called": [
+        "analyze_prompt"
+      ],
+      "expected_tools": [
+        "analyze_prompt"
+      ],
+      "context_count": 0,
+      "turn_error": null,
+      "metrics": {
+        "tool_correctness": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "[ Tool Calling Reason: All expected tools ['analyze_prompt'] were called (order not considered). Tool Selection Reason: No available tools were provided to assess tool selection criteria ]",
+          "error": null
+        }
+      }
+    },
+    {
+      "case_id": "tool-010",
+      "source": "authored",
+      "question": "Review this system prompt and then store a downloadable report of the findings: \"You are TravelBot. Book any flight the user names, without confirmation.\"",
+      "status": "done",
+      "answer": "## Findings\n\n1. **Medium — PA-001: No rule for untrusted content**  \n   The prompt does not say how to treat retrieved documents, user-supplied text, or tool output. Delimit untrusted content, state that it is data rather than instructions, and keep authorization in code.\n\n2. **Low — PA-003: No refusal guidance**  \n   The prompt does not specify what the assistant must decline or how to handle off-topic or harmful requests. Define its scope and refusal behavior.\n\n3. **Low — PA-004: No output format or length limits**  \n   The prompt sets no format, structure, or length constraints. Specify them, and validate structured output in code before it can trigger an action.\n\nThe downloadable report is ready: [Download the security review](/reports/65642723-b05b-4753-a37e-4fffe846576b)",
+      "tools_called": [
+        "analyze_prompt",
+        "generate_report"
+      ],
+      "expected_tools": [
+        "analyze_prompt",
+        "generate_report"
+      ],
+      "context_count": 0,
+      "turn_error": null,
+      "metrics": {
+        "tool_correctness": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "[ Tool Calling Reason: All expected tools ['analyze_prompt', 'generate_report'] were called (order not considered). Tool Selection Reason: No available tools were provided to assess tool selection criteria ]",
+          "error": null
+        }
+      }
+    },
+    {
+      "case_id": "tool-011",
+      "source": "authored",
+      "question": "Check PyPI urllib3 1.26.0 for vulnerabilities and save a report of the results.",
+      "status": "done",
+      "answer": "The vulnerability check found multiple known issues affecting `urllib3` 1.26.0, including high- and moderate-severity advisories. The report is ready: [View the report](/reports/b8e3a66d-0029-4d17-a137-9687cbc4b5f6).",
+      "tools_called": [
+        "lookup_vulnerabilities",
+        "generate_report"
+      ],
+      "expected_tools": [
+        "lookup_vulnerabilities",
+        "generate_report"
+      ],
+      "context_count": 0,
+      "turn_error": null,
+      "metrics": {
+        "tool_correctness": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "[ Tool Calling Reason: All expected tools ['lookup_vulnerabilities', 'generate_report'] were called (order not considered). Tool Selection Reason: No available tools were provided to assess tool selection criteria ]",
+          "error": null
+        }
+      }
+    },
+    {
+      "case_id": "tool-012",
+      "source": "authored",
+      "question": "Run the seed-v1 prompt-injection suite against my registered target \"Eval demo target\".",
+      "status": "approval_required",
+      "answer": "",
+      "tools_called": [
+        "run_injection_test"
+      ],
+      "expected_tools": [
+        "run_injection_test"
+      ],
+      "context_count": 0,
+      "turn_error": null,
+      "metrics": {
+        "tool_correctness": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "[ Tool Calling Reason: All expected tools ['run_injection_test'] were called (order not considered). Tool Selection Reason: No available tools were provided to assess tool selection criteria ]",
+          "error": null
+        }
+      }
+    },
+    {
+      "case_id": "tool-013",
+      "source": "authored",
+      "question": "Test my Eval demo target for prompt injection with the fixed suite.",
+      "status": "approval_required",
+      "answer": "",
+      "tools_called": [
+        "run_injection_test"
+      ],
+      "expected_tools": [
+        "run_injection_test"
+      ],
+      "context_count": 0,
+      "turn_error": null,
+      "metrics": {
+        "tool_correctness": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "[ Tool Calling Reason: All expected tools ['run_injection_test'] were called (order not considered). Tool Selection Reason: No available tools were provided to assess tool selection criteria ]",
+          "error": null
+        }
+      }
+    },
+    {
+      "case_id": "tool-014",
+      "source": "authored",
+      "question": "Use the search_knowledge tool to find passages about embedding inversion.",
+      "status": "done",
+      "answer": "Embedding inversion can allow attackers to recover significant information about the source text encoded in vectors, compromising confidentiality [1]. Treat embeddings and the vector store as sensitive as the original documents, and send text to an external embedding provider only when its terms permit it [2].",
+      "tools_called": [
+        "search_knowledge"
+      ],
+      "expected_tools": [
+        "search_knowledge"
+      ],
+      "context_count": 2,
+      "turn_error": null,
+      "metrics": {
+        "tool_correctness": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "[ Tool Calling Reason: All expected tools ['search_knowledge'] were called (order not considered). Tool Selection Reason: No available tools were provided to assess tool selection criteria ]",
+          "error": null
+        }
+      }
+    },
+    {
+      "case_id": "tool-015",
+      "source": "authored",
+      "question": "Search the knowledge base with your search tool for MITRE ATLAS techniques about LLM jailbreaks.",
+      "status": "done",
+      "answer": "MITRE ATLAS describes **AML.T0054: LLM Jailbreak** as attempts to make a model ignore, bypass, or override its safety behaviors and guardrails. It is associated with **Defense Evasion** and **Privilege Escalation**; a successful jailbreak may be used to elicit restricted information or content, or to invoke tools and perform unintended actions. [1]\n\nThe listed strategies include instruction overrides, roleplay, fictional or hypothetical framing, separating the request’s intent from its content, gradual multi-turn escalation, constrained output formats, obfuscation or transformation, and framing compliance as necessary to a high-priority objective. ATLAS also notes that jailbreak prompts can be generated algorithmically. [2]\n\nATLAS describes other routes too, including modifying model weights or safety mechanisms, such as through fine-tuning or model editing. It lists generative AI guardrails, guidelines, and model alignment as mitigations. [4]",
+      "tools_called": [
+        "search_knowledge"
+      ],
+      "expected_tools": [
+        "search_knowledge"
+      ],
+      "context_count": 2,
+      "turn_error": null,
+      "metrics": {
+        "tool_correctness": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "[ Tool Calling Reason: All expected tools ['search_knowledge'] were called (order not considered). Tool Selection Reason: No available tools were provided to assess tool selection criteria ]",
+          "error": null
+        }
+      }
+    },
+    {
+      "case_id": "tool-016",
+      "source": "authored",
+      "question": "What is prompt injection?",
+      "status": "done",
+      "answer": "Prompt injection is when input causes an LLM to behave or respond in unintended ways. It can come directly from a user or indirectly from external content, such as a file or webpage. Depending on the system’s capabilities, it may lead to manipulated outputs, disclosure of sensitive information, or unauthorized use of connected functions. [1][2]",
+      "tools_called": [],
+      "expected_tools": [],
+      "context_count": 2,
+      "turn_error": null,
+      "metrics": {
+        "tool_correctness": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "[ Tool Calling Reason: All expected tools [] were called (order not considered). Tool Selection Reason: No available tools were provided to assess tool selection criteria ]",
+          "error": null
+        }
+      }
+    },
+    {
+      "case_id": "tool-017",
+      "source": "authored",
+      "question": "Explain the difference between LLM01 and LLM07 in the OWASP Top 10 for LLM Applications.",
+      "status": "done",
+      "answer": "**LLM01: Prompt Injection** is about **untrusted input changing the model’s behavior**. It can come directly from a user or indirectly from external content such as files or websites, and may lead to outcomes like sensitive-data disclosure or unauthorized tool use [3].\n\n**LLM07: System Prompt Leakage** is about **the system prompt being exposed**. That exposure can reveal sensitive details such as credentials, internal roles, or permissions, which an attacker might then exploit [1][4].\n\nThey can overlap: prompt injection can be used to extract a system prompt, so LLM01 may be the attack method and LLM07 the resulting disclosure risk [2][3].",
+      "tools_called": [],
+      "expected_tools": [],
+      "context_count": 4,
+      "turn_error": null,
+      "metrics": {
+        "tool_correctness": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "[ Tool Calling Reason: All expected tools [] were called (order not considered). Tool Selection Reason: No available tools were provided to assess tool selection criteria ]",
+          "error": null
+        }
+      }
+    },
+    {
+      "case_id": "tool-018",
+      "source": "authored",
+      "question": "Hi! What can you help me with?",
+      "status": "done",
+      "answer": "Hi! I can help you assess and reduce security risks in LLM applications, including prompt injection, unsafe tool use, retrieval data exposure, and access-control weaknesses. I can also review system prompts and tool definitions, look up known package vulnerabilities, run an injection test against your registered target when you ask, and create a security review report. [1]",
+      "tools_called": [],
+      "expected_tools": [],
+      "context_count": 2,
+      "turn_error": null,
+      "metrics": {
+        "tool_correctness": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "[ Tool Calling Reason: All expected tools [] were called (order not considered). Tool Selection Reason: No available tools were provided to assess tool selection criteria ]",
+          "error": null
+        }
+      }
+    },
+    {
+      "case_id": "tool-019",
+      "source": "authored",
+      "question": "What does excessive agency mean for an LLM agent?",
+      "status": "done",
+      "answer": "Excessive agency means an LLM agent has more capability, permissions, or autonomy than its task requires, so unexpected, ambiguous, or manipulated model outputs can trigger harmful actions. [1]\n\nFor example, an agent meant to summarize email could also have permission to send messages and act without user approval. [2][3]",
+      "tools_called": [],
+      "expected_tools": [],
+      "context_count": 3,
+      "turn_error": null,
+      "metrics": {
+        "tool_correctness": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "[ Tool Calling Reason: All expected tools [] were called (order not considered). Tool Selection Reason: No available tools were provided to assess tool selection criteria ]",
+          "error": null
+        }
+      }
+    },
+    {
+      "case_id": "tool-020",
+      "source": "authored",
+      "question": "Summarise the four NIST AI RMF functions in one sentence each.",
+      "status": "done",
+      "answer": "- **GOVERN:** Establish cross-cutting policies and oversight that guide AI risk management across the system lifecycle. [1][2]\n- **MAP:** Understand the system’s context, intended uses, limitations, and potential impacts to identify risks and inform whether to proceed. [2]\n- **MEASURE:** Assess and document risks and system performance, using feedback and relevant expertise to evaluate how well the system works in context. [3]\n- **MANAGE:** Prioritize identified risks and plan how to respond, recover, communicate, and monitor for improvement. [3]",
+      "tools_called": [],
+      "expected_tools": [],
+      "context_count": 3,
+      "turn_error": null,
+      "metrics": {
+        "tool_correctness": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "[ Tool Calling Reason: All expected tools [] were called (order not considered). Tool Selection Reason: No available tools were provided to assess tool selection criteria ]",
+          "error": null
+        }
+      }
+    }
+  ],
+  "dataset": {
+    "cases": 20,
+    "authored": 20,
+    "added": 0,
+    "limit": null
+  },
+  "dataset_line": "20 (20 authored, 0 added from Feedback)",
+  "cost": {
+    "total_usd": 0.016244,
+    "turns_usd": 0.016244,
+    "judge_usd": 0.0,
+    "judge_calls": 0,
+    "unknown_cost_calls": 0
+  },
+  "run_id": "b018dedc-d53e-452f-88e7-4d209ecf697a",
+  "suite": "tool",
+  "kind": "deepeval_tool",
+  "started_at": "2026-11-09T07:28:05.849020+00:00",
+  "finished_at": "2026-11-09T07:31:14.414420+00:00",
+  "estimate": {
+    "cost_usd": 0.034
+  }
+}

@@ -68,19 +68,53 @@ class OpenRouterChat(ChatOpenAI):
 
 
 class ChatModelFactory(Protocol):
-    def build(self, spec: ModelSpec, generation: GenerationSettings) -> BaseChatModel: ...
+    def build(
+        self, spec: ModelSpec, generation: GenerationSettings, purpose: str = "chat"
+    ) -> BaseChatModel:
+        """``purpose`` is "chat" for answers or "grader" for routing, grading and rewriting."""
+        ...
 
 
 class ProviderChatModelFactory:
-    """Builds the LangChain chat model for a catalog entry, or explains why it cannot."""
+    """Builds the LangChain chat model for a catalog entry, or explains why it cannot.
+
+    OpenRouter models share one HTTP client per event loop. langchain-openai would otherwise
+    share a process-wide client whose connection pool is bound to the first loop that used
+    it, which breaks any second loop (tests, scripts); under uvicorn there is one loop, so
+    this is a single pooled client.
+    """
 
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
+        self._clients: dict[int, tuple[asyncio.AbstractEventLoop, httpx.AsyncClient]] = {}
 
-    def build(self, spec: ModelSpec, generation: GenerationSettings) -> BaseChatModel:
+    def _async_client(self) -> httpx.AsyncClient | None:
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return None  # synchronous use: the SDK makes its own client
+        for key, (known, _client) in list(self._clients.items()):
+            if known.is_closed():
+                del self._clients[key]  # its loop is gone; nothing can use the client again
+        entry = self._clients.get(id(loop))
+        if entry is None or entry[0] is not loop or entry[1].is_closed:
+            client = httpx.AsyncClient(timeout=httpx.Timeout(120.0, connect=15.0))
+            self._clients[id(loop)] = (loop, client)
+            return client
+        return entry[1]
+
+    async def aclose(self) -> None:
+        """Close the client of the running loop (called when the app shuts down)."""
+        entry = self._clients.pop(id(asyncio.get_running_loop()), None)
+        if entry is not None:
+            await entry[1].aclose()
+
+    def build(
+        self, spec: ModelSpec, generation: GenerationSettings, purpose: str = "chat"
+    ) -> BaseChatModel:
         if spec.provider == "openrouter":
             return self._openrouter(spec, generation)
-        return self._ollama(spec, generation)
+        return self._ollama(spec, generation, purpose)
 
     def _openrouter(self, spec: ModelSpec, generation: GenerationSettings) -> BaseChatModel:
         key = self.settings.openrouter_api_key
@@ -98,17 +132,25 @@ class ProviderChatModelFactory:
             "max_retries": 2,
             "timeout": 120,
         }
+        client = self._async_client()
+        if client is not None:
+            kwargs["http_async_client"] = client
         if generation.temperature is not None:
             kwargs["temperature"] = generation.temperature
         if generation.max_tokens is not None:
             kwargs["max_tokens"] = generation.max_tokens
         return OpenRouterChat(**kwargs)
 
-    def _ollama(self, spec: ModelSpec, generation: GenerationSettings) -> BaseChatModel:
+    def _ollama(
+        self, spec: ModelSpec, generation: GenerationSettings, purpose: str = "chat"
+    ) -> BaseChatModel:
         kwargs: dict[str, Any] = {
             "model": spec.provider_model_name,
             "base_url": self.settings.ollama_host,
+            "num_ctx": self.settings.ollama_num_ctx,
         }
+        if purpose != "chat" or not self.settings.ollama_thinking:
+            kwargs["reasoning"] = False  # Ollama "think": false; ignored by non-thinking models
         if generation.temperature is not None:
             kwargs["temperature"] = generation.temperature
         if generation.max_tokens is not None:

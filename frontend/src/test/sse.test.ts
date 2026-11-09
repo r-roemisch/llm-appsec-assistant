@@ -100,6 +100,24 @@ describe("parseSSE", () => {
     expect(events).toHaveLength(1);
   });
 
+  it("closes the connection when the consumer stops early", async () => {
+    const encoder = new TextEncoder();
+    let cancelled = false;
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(encoder.encode('event: done\ndata: {"ok":true}\n\nevent: delta\ndata: {"text":"late"}\n\n'));
+        // Never closes on its own, like a server that keeps the connection open.
+      },
+      cancel() {
+        cancelled = true;
+      },
+    });
+    for await (const event of parseSSE(stream)) {
+      if (event.event === "done") break;
+    }
+    expect(cancelled).toBe(true);
+  });
+
   it("yields nothing when the signal is already aborted", async () => {
     const controller = new AbortController();
     controller.abort();

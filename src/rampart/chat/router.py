@@ -10,8 +10,10 @@ from sse_starlette import EventSourceResponse, ServerSentEvent
 
 from rampart.chat.service import ChatService
 from rampart.deps import csrf_protect, current_user, get_db
+from rampart.feedback.service import FeedbackService
 from rampart.models import User
 from rampart.schemas import (
+    ApprovalDecisionIn,
     ConversationCreateIn,
     ConversationDetailOut,
     ConversationOut,
@@ -51,7 +53,9 @@ def create_conversation(
     chat: ChatService = Depends(get_chat),
     db: Session = Depends(get_db),
 ) -> ConversationOut:
-    conversation, stats = chat.create_conversation(db, user.id, body.model_id, body.title)
+    conversation, stats = chat.create_conversation(
+        db, user.id, body.model_id, body.title, help_mode=body.help_mode
+    )
     db.commit()
     return conversation_out(conversation, stats.message_count, stats.total_cost_usd)
 
@@ -63,10 +67,14 @@ def get_conversation(
     chat: ChatService = Depends(get_chat),
     db: Session = Depends(get_db),
 ) -> ConversationDetailOut:
-    conversation, stats, messages = chat.get_detail(db, user.id, conversation_id)
+    conversation, stats, messages, approvals = chat.get_detail(db, user.id, conversation_id)
+    feedback = FeedbackService(db).mine(user.id, [m.id for m in messages if m.role == "assistant"])
     return ConversationDetailOut(
         conversation=conversation_out(conversation, stats.message_count, stats.total_cost_usd),
-        messages=[message_out(m) for m in messages],
+        messages=[
+            message_out(m, approval=approvals.get(m.id), db=db, feedback=feedback.get(m.id))
+            for m in messages
+        ],
     )
 
 
@@ -79,7 +87,12 @@ def update_conversation(
     db: Session = Depends(get_db),
 ) -> ConversationOut:
     conversation, stats = chat.update_conversation(
-        db, user.id, conversation_id, title=body.title, model_id=body.model_id
+        db,
+        user.id,
+        conversation_id,
+        title=body.title,
+        model_id=body.model_id,
+        help_mode=body.help_mode,
     )
     db.commit()
     return conversation_out(conversation, stats.message_count, stats.total_cost_usd)
@@ -98,16 +111,10 @@ async def delete_conversation(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@router.post("/{conversation_id}/messages")
-async def send_message(
-    conversation_id: str,
-    body: MessageIn,
-    user: User = Depends(current_user),
-    chat: ChatService = Depends(get_chat),
-) -> EventSourceResponse:
-    turn = chat.stream_turn(user_id=user.id, conversation_id=conversation_id, content=body.content)
+async def _stream(turn) -> EventSourceResponse:  # noqa: ANN001 (an async generator of TurnEvent)
     # Run the generator up to its first event here so that validation errors (empty message,
-    # busy Conversation, unknown Conversation) become ordinary HTTP errors, not a broken stream.
+    # busy Conversation, unknown Conversation, a decided Approval) become ordinary HTTP errors,
+    # not a broken stream.
     first = await turn.__anext__()
 
     async def events():
@@ -116,3 +123,46 @@ async def send_message(
             yield ServerSentEvent(event=item.event, data=json.dumps(item.data))
 
     return EventSourceResponse(events())
+
+
+@router.post("/{conversation_id}/messages")
+async def send_message(
+    conversation_id: str,
+    body: MessageIn,
+    user: User = Depends(current_user),
+    chat: ChatService = Depends(get_chat),
+) -> EventSourceResponse:
+    turn = chat.stream_turn(user_id=user.id, conversation_id=conversation_id, content=body.content)
+    return await _stream(turn)
+
+
+@router.post("/{conversation_id}/approvals/{approval_id}")
+async def decide_approval(
+    conversation_id: str,
+    approval_id: str,
+    body: ApprovalDecisionIn,
+    user: User = Depends(current_user),
+    chat: ChatService = Depends(get_chat),
+) -> EventSourceResponse:
+    """The requester approves or rejects, and the turn continues in this stream."""
+    turn = chat.resume_turn(
+        user_id=user.id,
+        conversation_id=conversation_id,
+        approval_id=approval_id,
+        decision=body.decision,
+    )
+    return await _stream(turn)
+
+
+@router.post("/{conversation_id}/approvals/{approval_id}/continue")
+async def continue_after_approval(
+    conversation_id: str,
+    approval_id: str,
+    user: User = Depends(current_user),
+    chat: ChatService = Depends(get_chat),
+) -> EventSourceResponse:
+    """Continue a turn after an admin decided (or after the approval expired)."""
+    turn = chat.resume_turn(
+        user_id=user.id, conversation_id=conversation_id, approval_id=approval_id, decision=None
+    )
+    return await _stream(turn)

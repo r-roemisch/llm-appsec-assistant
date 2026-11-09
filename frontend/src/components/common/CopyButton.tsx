@@ -4,7 +4,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 
-export function CopyButton({ text, className }: { text: string; className?: string }) {
+export function CopyButton({ text, className, label = "Copy code" }: { text: string; className?: string; label?: string }) {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -29,7 +29,7 @@ export function CopyButton({ text, className }: { text: string; className?: stri
       size="icon-xs"
       className={className}
       onClick={() => void copy()}
-      aria-label={copied ? "Copied" : "Copy code"}
+      aria-label={copied ? "Copied" : label}
       title={copied ? "Copied" : "Copy"}
     >
       {copied ? <CheckIcon /> : <CopyIcon />}

@@ -1,6 +1,17 @@
 import { describe, expect, it } from "vitest";
 
-import { formatCompact, formatCost, formatLatency, formatRelativeTime, formatTokens } from "@/lib/format";
+import {
+  formatBytes,
+  formatCompact,
+  formatCost,
+  formatCount,
+  formatCountdown,
+  formatDate,
+  formatLatency,
+  formatRelativeTime,
+  formatShortDateTime,
+  formatTokens,
+} from "@/lib/format";
 
 describe("formatCost", () => {
   it("shows an em dash for unknown cost", () => {
@@ -50,6 +61,33 @@ describe("formatCompact", () => {
   });
 });
 
+describe("formatBytes", () => {
+  it("uses binary units, like the upload limit", () => {
+    expect(formatBytes(null)).toBe("—");
+    expect(formatBytes(0)).toBe("0 B");
+    expect(formatBytes(812)).toBe("812 B");
+    expect(formatBytes(1536)).toBe("1.5 KB");
+    expect(formatBytes(12_345)).toBe("12 KB");
+    expect(formatBytes(5 * 1024 * 1024)).toBe("5 MB");
+    expect(formatBytes(1024 * 1024 - 1)).toBe("1 MB");
+  });
+});
+
+describe("formatCount", () => {
+  it("picks the singular or plural noun", () => {
+    expect(formatCount(1, "passage")).toBe("1 passage");
+    expect(formatCount(0, "passage")).toBe("0 passages");
+    expect(formatCount(1284, "passage")).toBe("1,284 passages");
+  });
+});
+
+describe("formatDate", () => {
+  it("formats a date and returns an empty string for invalid input", () => {
+    expect(formatDate("2026-11-06T12:00:00Z")).toBe("Nov 6, 2026");
+    expect(formatDate("not a date")).toBe("");
+  });
+});
+
 describe("formatLatency", () => {
   it("formats milliseconds and seconds", () => {
     expect(formatLatency(null)).toBe("—");
@@ -80,5 +118,37 @@ describe("formatRelativeTime", () => {
 
   it("returns an empty string for invalid input", () => {
     expect(formatRelativeTime("not a date", now)).toBe("");
+  });
+});
+
+describe("formatCountdown", () => {
+  it("shows minutes and seconds below an hour", () => {
+    expect(formatCountdown(15 * 60_000)).toBe("15:00");
+    expect(formatCountdown(14 * 60_000 + 5_000)).toBe("14:05");
+    expect(formatCountdown(42_000)).toBe("0:42");
+    expect(formatCountdown(400)).toBe("0:01");
+  });
+
+  it("shows hours and days for long approvals", () => {
+    expect(formatCountdown(24 * 3_600_000)).toBe("1 d");
+    expect(formatCountdown(23 * 3_600_000 + 59 * 60_000)).toBe("23 h 59 min");
+    expect(formatCountdown(3 * 3_600_000)).toBe("3 h");
+    expect(formatCountdown(50 * 3_600_000)).toBe("2 d 2 h");
+  });
+
+  it("stops at zero", () => {
+    expect(formatCountdown(0)).toBe("0:00");
+    expect(formatCountdown(-5_000)).toBe("0:00");
+    expect(formatCountdown(Number.NaN)).toBe("0:00");
+  });
+});
+
+describe("formatShortDateTime", () => {
+  it("leaves out the current year and keeps seconds", () => {
+    const now = Date.parse("2026-11-08T12:00:00Z");
+    const text = formatShortDateTime("2026-11-08T10:15:30Z", now);
+    expect(text).toMatch(/^Nov \d{1,2}, \d{1,2}:\d{2}:30\s?[AP]M$/);
+    expect(formatShortDateTime("2025-03-01T10:15:30Z", now)).toContain("2025");
+    expect(formatShortDateTime("not a date", now)).toBe("");
   });
 });

@@ -1,4 +1,4 @@
-import { MoreHorizontalIcon, PencilIcon, Trash2Icon } from "lucide-react";
+import { LifeBuoyIcon, MoreHorizontalIcon, PencilIcon, Trash2Icon } from "lucide-react";
 import { useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router";
 
@@ -92,7 +92,12 @@ export function ConversationListItem({ conversation, now, onNavigate }: Conversa
           aria-current={active ? "page" : undefined}
           className="block rounded-md py-2 pr-9 pl-2.5 outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
         >
-          <span className="block truncate text-sm font-medium">{title}</span>
+          <span className="flex items-center gap-1.5">
+            {conversation.help_mode ? (
+              <LifeBuoyIcon role="img" aria-label="Help mode" className="size-3.5 shrink-0 text-primary" />
+            ) : null}
+            <span className="truncate text-sm font-medium">{title}</span>
+          </span>
           <span className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
             <span>{formatRelativeTime(conversation.updated_at, now)}</span>
             <span className="rounded-sm border px-1 py-px text-[11px] leading-none tabular-nums">

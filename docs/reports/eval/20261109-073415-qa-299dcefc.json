@@ -1,0 +1,177 @@
+{
+  "models": {
+    "chat": "openai/gpt-6-luna",
+    "grader": "openai/gpt-6-luna",
+    "judge": "openai/gpt-6.1-sol"
+  },
+  "threshold": 0.7,
+  "metrics": {
+    "faithfulness": {
+      "mean": 1.0,
+      "passed": 3,
+      "scored": 3,
+      "skipped": 0,
+      "errors": 0,
+      "total": 3
+    },
+    "answer_relevancy": {
+      "mean": 1.0,
+      "passed": 3,
+      "scored": 3,
+      "skipped": 0,
+      "errors": 0,
+      "total": 3
+    },
+    "contextual_precision": {
+      "mean": 1.0,
+      "passed": 3,
+      "scored": 3,
+      "skipped": 0,
+      "errors": 0,
+      "total": 3
+    },
+    "contextual_recall": {
+      "mean": 1.0,
+      "passed": 3,
+      "scored": 3,
+      "skipped": 0,
+      "errors": 0,
+      "total": 3
+    }
+  },
+  "cases": [
+    {
+      "case_id": "qa-001",
+      "source": "authored",
+      "question": "What is LLM01:2025 Prompt Injection in the OWASP Top 10 for LLM Applications?",
+      "status": "done",
+      "answer": "OWASP LLM01:2025, **Prompt Injection**, is a vulnerability where input causes an LLM to behave or respond in unintended ways. The input can be direct or embedded in content the model processes, and it need not be human-readable to affect the model. It can lead to guideline violations, harmful outputs, unauthorized access, or influence over important decisions. Techniques such as RAG do not fully prevent it. [3]",
+      "tools_called": [],
+      "expected_tools": [],
+      "context_count": 3,
+      "turn_error": null,
+      "metrics": {
+        "faithfulness": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the actual output is fully faithful to the retrieval context, with no contradictions. Great job!",
+          "error": null
+        },
+        "answer_relevancy": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the response stays fully focused on explaining LLM01:2025 Prompt Injection in the OWASP Top 10 for LLM Applications, with no irrelevant statements. Excellent relevance!",
+          "error": null
+        },
+        "contextual_precision": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because all three nodes in the retrieval contexts are relevant, with no irrelevant nodes ranked above them. The first node illustrates attacks that bypass safety measures, the second shows instructions to 'ignore previous guidelines,' and the third directly defines prompt injection as when 'user prompts alter the LLM’s behavior or output in unintended ways.' This earns the maxim…",
+          "error": null
+        },
+        "contextual_recall": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because node 3 in retrieval context fully supports both sentences: sentence 1 defines prompt injection, and sentence 2 explains that model-parsed inputs need not be human-visible and lists their potential harmful effects. Excellent coverage!",
+          "error": null
+        }
+      }
+    },
+    {
+      "case_id": "qa-002",
+      "source": "authored",
+      "question": "What is the difference between direct and indirect prompt injection according to OWASP?",
+      "status": "done",
+      "answer": "According to OWASP, **direct prompt injection** comes from a user’s own input and attempts to change the model’s behavior. **Indirect prompt injection** comes from external content the application feeds to the model—such as a website or file—which may be interpreted as instructions and change the model’s behavior. [1]",
+      "tools_called": [],
+      "expected_tools": [],
+      "context_count": 2,
+      "turn_error": null,
+      "metrics": {
+        "faithfulness": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the actual output is fully consistent with the retrieval context, with no contradictions. Great alignment!",
+          "error": null
+        },
+        "answer_relevancy": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the response stays fully focused on explaining the difference between direct and indirect prompt injection according to OWASP, with no irrelevant content. Great focus!",
+          "error": null
+        },
+        "contextual_precision": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because both nodes in the retrieval contexts are relevant and correctly prioritized. The first node defines direct injection as when 'a user's prompt input directly alters the behavior of the model' and indirect injection as originating from 'external sources, such as websites or files.' The second node reinforces this distinction with 'the person typing to the application' vers…",
+          "error": null
+        },
+        "contextual_recall": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because node 1 in retrieval context fully supports both sentences: sentence 1 describes intentional or unintentional direct injection through user prompts, and sentence 2 describes indirect injection through external sources such as websites or files. Both definitions are accurately grounded.",
+          "error": null
+        }
+      }
+    },
+    {
+      "case_id": "qa-003",
+      "source": "authored",
+      "question": "Which mitigation strategies does OWASP list for prompt injection?",
+      "status": "done",
+      "answer": "OWASP lists these prompt-injection mitigation strategies:\n\n1. **Constrain model behavior** with clear role, capability, and task limits.\n2. **Define and validate expected output formats**, using deterministic checks.\n3. **Implement input and output filtering** for sensitive or malicious content.\n4. **Enforce privilege control and least-privilege access.**\n5. **Require human approval for high-risk actions.**\n6. **Segregate and identify external content** as untrusted.\n7. **Conduct adversarial testing and attack simulations.** [1]",
+      "tools_called": [],
+      "expected_tools": [],
+      "context_count": 1,
+      "turn_error": null,
+      "metrics": {
+        "faithfulness": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the actual output is fully consistent with the retrieval context, with no contradictions. Great work!",
+          "error": null
+        },
+        "answer_relevancy": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the response stays focused on OWASP’s prompt injection mitigation strategies, with no irrelevant statements. Great focus!",
+          "error": null
+        },
+        "contextual_precision": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because the first and only node in the retrieval contexts directly lists all seven OWASP mitigation strategies, including 'Constrain model behavior' and 'Conduct adversarial testing and attack simulations.' There are no irrelevant nodes to rank lower, so the ranking achieves perfect precision.",
+          "error": null
+        },
+        "contextual_recall": {
+          "score": 1.0,
+          "passed": true,
+          "reason": "The score is 1.00 because node 1 in retrieval context supports all seven measures in sentence 1 and the uncertainty about fool-proof prevention in sentence 2, providing complete substantive coverage.",
+          "error": null
+        }
+      }
+    }
+  ],
+  "dataset": {
+    "cases": 3,
+    "authored": 3,
+    "added": 0,
+    "limit": 3
+  },
+  "dataset_line": "3 (3 authored, 0 added from Feedback); the first 3 only",
+  "cost": {
+    "total_usd": 0.089707,
+    "turns_usd": 0.0016,
+    "judge_usd": 0.088107,
+    "judge_calls": 33,
+    "unknown_cost_calls": 0
+  },
+  "run_id": "299dcefc-3c3a-416c-beb5-99fa506324b6",
+  "suite": "qa",
+  "kind": "deepeval_qa",
+  "started_at": "2026-11-09T07:33:22.860042+00:00",
+  "finished_at": "2026-11-09T07:34:15.422302+00:00",
+  "estimate": {
+    "cost_usd": 0.2077
+  }
+}

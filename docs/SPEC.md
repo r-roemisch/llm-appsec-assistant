@@ -187,7 +187,7 @@ CLI (Typer): `rampart init` (database, first admin), `rampart serve`, `rampart u
 | P6-A17 | Turns on OpenRouter and on Ollama | Cost equals the figure OpenRouter reported for the request; Ollama turns cost zero; Conversation, user and admin totals match |
 | P6-A18 | Thumbs down on an answer | Feedback stored with trace id and forwarded as a score; policy and Guard digests unchanged afterwards |
 | P6-A19 | Admin converts an answer with Feedback into an Evaluation Case | Case stored; the next DeepEval run includes it |
-| P6-A20 | Plugin enabled from the catalog | Tools appear as `plugin:<plugin_id>`, disabled by default; drift blocks use until accepted; no command comes from the model or the UI |
+| P6-A20 | Plugin enabled from the catalog | Tools appear contributed by `plugin:<plugin_id>` (callable as `<plugin_id>__<tool>`), disabled by default; drift blocks use until accepted; no command comes from the model or the UI |
 | P6-A21 | Demo Target in vulnerable and secure profiles | Executed plus received with sink evidence versus proposed plus denied; unregistered URL rejected; marker in input marks contamination |
 | P6-A22 | OpenRouter error; Langfuse unreachable; no embedding Model; Ollama offline | Retry then a clear error; JSONL trace written; BM25-only with a UI badge; clear error for Ollama |
 | P6-A23 | `rampart eval` | DeepEval and Guard metrics written to `docs/reports/` and displayed; datasets unreadable at runtime |
@@ -236,7 +236,8 @@ M1 Foundation: SQLite schema, `auth`, `catalog` with both Provider clients, mini
 
 M2 Knowledge: `knowledge`, `rampart ingest` with official Sources and fixtures, uploads, retrieval sub-graph with grading, rewriting and Citations, Project Profile form, help page and help mode. Tests A05, A06, A07, A16, A24.
 
-M3 Controls: `ToolRegistry`, `Gateway`, `ApprovalService` with interrupt and Approval cards, Guards G1 to G4, Tools `analyze_prompt`, `lookup_vulnerabilities`, `generate_report`, admin Tool policy and approver switches, Guard flags, audit log, Reports route. Tests A08 to A15. The hard rubric is fully met after M3.
+M3 Controls: `ToolRegistry`, `Gateway`, `ApprovalService` with interrupt and Approval cards, Guards G1 to G4, Tools `analyze_prompt`, `lookup_vulnerabilities`, `generate_report`, admin Tool policy and approver switches, Guard flags, audit log, Reports route. Tests A08 to A15. The plan was that the hard rubric is met after M3; the evaluation report
+(a hard soft-item) and the feedback loop arrived in M6.
 
 M4 Injection tests and demo Target: `demo_target`, `TargetService`, `InjectionTestRunner`, seed suite, `run_injection_test` behind Approval, Targets route, `rampart demo-target`, `rampart demo`. Test A21.
 
@@ -258,7 +259,7 @@ Platform: WSL2 Linux, no GPU, Python 3.12 with uv, Node 22; no Docker.
 
 ## 19. Project kickoff for the coding model
 
-State on 2026-11-06: `docs/DESIGN.md` confirmed; ADRs 0001 to 0003 written; `docs/API.md` holds the M1 HTTP contract; the Python project is scaffolded with uv (`pyproject.toml`, `uv.lock`, `src/rampart/`); no Provider key present. M1 is in progress.
+State on 2026-11-09: all six milestones are built and verified; `docs/reports/m6.md` has the final test run and `docs/traceability.md` maps every requirement and acceptance test to code and evidence. Earlier: state on 2026-11-06: `docs/DESIGN.md` confirmed; ADRs 0001 to 0003 written; `docs/API.md` holds the M1 HTTP contract; the Python project is scaffolded with uv (`pyproject.toml`, `uv.lock`, `src/rampart/`); no Provider key present. M1 is in progress.
 
 Order of work: finish M1 and prove authentication, Model and Slot switching, streaming, cost accounting and tracing with the scripted stand-in model. Add knowledge and the Project Profile next. Build the Gateway before any model-invoked Tool so that every Tool is born behind policy (M2 retrieval runs as a graph node). Add the injection test Tool and Plugins only after the Gateway and Approvals exist. Finish with Feedback, evaluation, CI and documentation, and record honest live-verification status for each Provider actually used. Keep `docs/API.md` current; write `docs/reports/mN.md` after each milestone.
 
@@ -269,11 +270,13 @@ Order of work: finish M1 and prove authentication, Model and Slot switching, str
 | Node | 22.23.2 | npm 10.9.8 |
 | uv | 0.12.17 | |
 | Python | 3.12.3 | |
-| Ollama | 0.40.14 | local API reachable; one Model pulled locally, not the catalog default |
+| Ollama | 0.40.14 | local API reachable; one Model pulled locally, not the catalog default (`huihui_ai/Qwen3.8-abliterated`, 27.3B, Q4_K_M, CPU only; verified with the M2 live tests on 2026-11-08) |
 | gh | 2.45.0 | authenticated |
 | Provider keys | none yet | |
 
-Python packages installed for M1: fastapi 0.162.0, uvicorn 0.54.0, sqlalchemy 2.1.8, pydantic 2.14.3, pydantic-settings 2.16.2, langgraph 1.2.20, langgraph-checkpoint-sqlite 3.1.3, langchain-core 1.7.6, langchain-openai 1.7.4, langchain-ollama 1.1.0, langfuse 5.2.0, sse-starlette 3.6.0, argon2-cffi 25.1.0, typer 0.27.3, openai 3.46.0, pytest 9.2.0, ruff 0.17.4, pyright 1.1.414. Planned for later milestones: chromadb 1.5.9, rank-bm25 0.2.2, pypdf 6.21.4, mcp 2.3.0, deepeval 4.3.3.
+Python packages installed for M1: fastapi 0.162.0, uvicorn 0.54.0, sqlalchemy 2.1.8, pydantic 2.14.3, pydantic-settings 2.16.2, langgraph 1.2.20, langgraph-checkpoint-sqlite 3.1.3, langchain-core 1.7.6, langchain-openai 1.7.4, langchain-ollama 1.1.0, langfuse 5.2.0, sse-starlette 3.6.0, argon2-cffi 25.1.0, typer 0.27.3, openai 3.46.0, pytest 9.2.0, ruff 0.17.4, pyright 1.1.414. Added for M2 (2026-11-08): chromadb 1.5.9, rank-bm25 0.2.2, pypdf 7.0.0, python-multipart 0.0.33. Added for M3: jsonschema 4.26.0 (already a Chroma dependency, now declared). OSV.dev's query API (`https://api.osv.dev/v1/query`) answered in 0.4 s from this machine on 2026-11-08; an unknown package returns `{}`, an unknown ecosystem HTTP 400. M4 adds no new third-party dependency: the demo Target is a small FastAPI app and the injection runner drives it with the httpx already present. A full run of the `seed-v1` suite (12 injection, 6 benign candidates) against the demo Target over a real loopback port on 2026-11-08: vulnerable profile: all 11 uncontaminated injection candidates breached (12 in total, 1 contaminated and excluded), no benign candidate acted on; secure profile: 0 of 12 breached. Added for M5 (2026-11-08): mcp 2.3.0 (released 2026-10-02, with mcp-types 2.3.0 from the same maintainers; httpx2 was already installed). In mcp 2.x `FastMCP` is renamed `MCPServer` (`mcp.server.mcpserver`), the high-level `mcp.Client` accepts `StdioServerParameters` or any transport, the stdio client passes the server only a minimal environment (HOME, LOGNAME, PATH, SHELL, TERM, USER), and a client that registers no callbacks advertises no sampling, elicitation or roots. The connection negotiates protocol 2026-07-28. Starting a fixture server and listing its tools over stdio takes 0.5 to 0.8 s on this machine. Added for M6 (2026-11-09): deepeval 4.3.3 (released 2026-11-04; the upstream main branch declares the same version, though releases after 4.2.4 are no longer tagged). It pins click below 8.4 and rich below 15 and pulls posthog and four pytest plugins; with it huggingface-hub resolved to 1.16.1, and the whole suite still passed. DeepEval registers a pytest plugin that opens a telemetry run in every session, so `pyproject.toml` disables it (`-p no:deepeval`); `import deepeval` reads `.env` files from the working directory, so the evaluation sets `DEEPEVAL_DISABLE_DOTENV`, `DEEPEVAL_TELEMETRY_OPT_OUT` and its own `DEEPEVAL_CACHE_FOLDER` before importing it, and the web server never imports it. `ToolCorrectnessMetric` without `available_tools` is deterministic but still builds a default OpenAI model unless given one, so it gets a model that fails if called. DeepEval's metrics are called directly (`a_measure`) rather than through `deepeval test run`, so the CLI and the admin page share one runner. The OpenRouter workspace used here blocks `anthropic/claude-opus-5.5` (HTTP 404, guardrail and data policy), so the judge Slot defaults to `openai/gpt-6.1-sol`. Langfuse Cloud retired `GET /api/public/scores` (HTTP 410) in favour of `/api/public/v3/scores`.
+
+Sources fetched by `rampart ingest` (verified 2026-11-08): the OWASP Top 10 for LLM Applications 2025 entries LLM01 to LLM10 from `OWASP/www-project-top-10-for-large-language-model-applications`, pinned to commit `eb87ba8` (the latest change to `2_0_vulns/`, 2025-11-18), CC BY-SA 4.0; MITRE ATLAS `dist/ATLAS.yaml` from `mitre-atlas/atlas-data` release `v2026.10` (ATLAS 5.6.0, commit `f56c146`), Apache 2.0; NIST AI 100-1 and NIST AI 600-1 from `nvlpubs.nist.gov` (the server answers GET but returns 404 to HEAD requests), U.S. Government works. A full ingest stores 20 Sources and 652 passages; embedding them with `openai/text-embedding-3-small` cost $0.0034.
 
 Frontend: vite 8.3.6, react 19.3.1, typescript 7.0.2, tailwindcss 4.3.4, shadcn 4.23.0, @tanstack/react-query 5.106.1, react-router 8.5.1, vitest 5.1.0.
 
@@ -287,7 +290,9 @@ OpenRouter catalog defaults, prices per million tokens (input/output) as listed 
 | `openai/gpt-6.1-sol` | chat | powerful | $2 / $10 |
 | `openai/text-embedding-3-small` | embedding | cheap | $0.02 input |
 
-Ollama catalog defaults: `ollama/qwen3:8b` (chat, cheap) and `ollama/nomic-embed-text` (embedding, cheap); the user must `ollama pull` them or edit `models.yaml` to the Models present.
+On 2026-11-08 the chat and grader Slot defaults moved from `anthropic/claude-haiku-5.5` to `openai/gpt-6-luna` (same listed price); the judge Slot stayed on `anthropic/claude-opus-5.5` until 2026-11-09, when it moved to `openai/gpt-6.1-sol` (see below: the workspace blocks the Claude Model).
+
+Ollama catalog defaults: `ollama/qwen3:8b` (chat, cheap) and `ollama/nomic-embed-text` (embedding, cheap); the user must `ollama pull` them or edit `models.yaml` to the Models present. On 2026-11-08 the owner's pulled Model `ollama/huihui_ai/Qwen3.8-abliterated` (chat, 27.3B, refusal training removed) was added to the catalog at their request; it holds no Slot.
 
 ## 21. Changes from version 1.0
 

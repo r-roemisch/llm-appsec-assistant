@@ -26,6 +26,7 @@ class TurnTrace:
     output: str | None = None
     usage: dict[str, Any] = field(default_factory=dict)
     error: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 class Tracer(Protocol):
@@ -36,7 +37,13 @@ class Tracer(Protocol):
     ) -> AbstractContextManager[TurnTrace]: ...
 
     def score(
-        self, *, trace_id: str, name: str, value: float, comment: str | None = None
+        self,
+        *,
+        trace_id: str,
+        name: str,
+        value: float,
+        comment: str | None = None,
+        score_id: str | None = None,
     ) -> None: ...
 
     def flush(self) -> None: ...
@@ -83,8 +90,29 @@ class JsonlTracer:
     def turn(
         self, *, user_id: int, conversation_id: str, model_id: str, input_text: str
     ) -> Iterator[TurnTrace]:
+        trace = TurnTrace(trace_id=uuid.uuid4().hex, callbacks=[])
+        with self.recording(
+            trace,
+            user_id=user_id,
+            conversation_id=conversation_id,
+            model_id=model_id,
+            input_text=input_text,
+        ):
+            yield trace
+
+    @contextmanager
+    def recording(
+        self,
+        trace: TurnTrace,
+        *,
+        user_id: int,
+        conversation_id: str,
+        model_id: str,
+        input_text: str,
+    ) -> Iterator[TurnTrace]:
+        """Write one line for ``trace`` (under its trace id) when the turn ends."""
         handler = _RecordingHandler()
-        trace = TurnTrace(trace_id=uuid.uuid4().hex, callbacks=[handler])
+        trace.callbacks.append(handler)
         started = time.monotonic()
         started_at = datetime.now(UTC)
         try:
@@ -104,16 +132,26 @@ class JsonlTracer:
                     "output": trace.output,
                     "usage": trace.usage,
                     "error": trace.error,
+                    "metadata": trace.metadata,
                     "events": handler.events,
                 },
             )
 
-    def score(self, *, trace_id: str, name: str, value: float, comment: str | None = None) -> None:
+    def score(
+        self,
+        *,
+        trace_id: str,
+        name: str,
+        value: float,
+        comment: str | None = None,
+        score_id: str | None = None,
+    ) -> None:
         now = datetime.now(UTC)
         self._append(
             now,
             {
                 "type": "score",
+                "score_id": score_id,
                 "trace_id": trace_id,
                 "at": now.isoformat(),
                 "name": name,
@@ -132,6 +170,14 @@ class JsonlTracer:
             handle.write(json.dumps(record, ensure_ascii=False, default=str) + "\n")
 
 
+def redact_trace_data(*, data: Any, **_kwargs: Any) -> Any:
+    """Langfuse's mask hook: every value the SDK exports (inputs, outputs, metadata, including
+    raw model output captured by the LangChain callback) has secret-like strings redacted."""
+    from rampart.guards.secrets import redact_value
+
+    return redact_value(data)
+
+
 class LangfuseTracer:
     """Langfuse through the LangChain callback handler; one trace per chat turn."""
 
@@ -145,6 +191,7 @@ class LangfuseTracer:
             public_key=settings.langfuse_public_key,
             secret_key=settings.langfuse_secret_key.get_secret_value(),
             base_url=settings.langfuse_host,
+            mask=redact_trace_data,  # G4 for traces: nothing credential-like leaves for Langfuse
         )
 
     @contextmanager
@@ -174,22 +221,83 @@ class LangfuseTracer:
             finally:
                 span.update(
                     output=trace.output,
-                    metadata={"usage": trace.usage, "error": trace.error},
+                    metadata={"usage": trace.usage, "error": trace.error, **trace.metadata},
                     level="ERROR" if trace.error else None,
                     status_message=trace.error,
                 )
 
-    def score(self, *, trace_id: str, name: str, value: float, comment: str | None = None) -> None:
-        self.client.create_score(trace_id=trace_id, name=name, value=value, comment=comment)
+    def score(
+        self,
+        *,
+        trace_id: str,
+        name: str,
+        value: float,
+        comment: str | None = None,
+        score_id: str | None = None,
+    ) -> None:
+        # The same score_id updates the score rather than adding another one.
+        self.client.create_score(
+            trace_id=trace_id,
+            name=name,
+            value=value,
+            comment=comment,
+            score_id=score_id,
+            data_type="NUMERIC",
+        )
 
     def flush(self) -> None:
         self.client.flush()
 
 
+class MirroredTracer:
+    """Langfuse, plus a JSONL copy of every turn and score under the same trace id. Langfuse
+    exports in the background, so an outage cannot be seen in time to switch; keeping the local
+    copy always means a trace survives when Langfuse cannot be reached (P6-A22)."""
+
+    backend = "langfuse"
+
+    def __init__(self, primary: LangfuseTracer, mirror: JsonlTracer) -> None:
+        self.primary = primary
+        self.mirror = mirror
+
+    @contextmanager
+    def turn(
+        self, *, user_id: int, conversation_id: str, model_id: str, input_text: str
+    ) -> Iterator[TurnTrace]:
+        details = {
+            "user_id": user_id,
+            "conversation_id": conversation_id,
+            "model_id": model_id,
+            "input_text": input_text,
+        }
+        with self.primary.turn(**details) as trace, self.mirror.recording(trace, **details):
+            yield trace
+
+    def score(
+        self,
+        *,
+        trace_id: str,
+        name: str,
+        value: float,
+        comment: str | None = None,
+        score_id: str | None = None,
+    ) -> None:
+        self.mirror.score(
+            trace_id=trace_id, name=name, value=value, comment=comment, score_id=score_id
+        )
+        self.primary.score(
+            trace_id=trace_id, name=name, value=value, comment=comment, score_id=score_id
+        )
+
+    def flush(self) -> None:
+        self.primary.flush()
+
+
 def build_tracer(settings: Settings) -> Tracer:
+    mirror = JsonlTracer(settings.traces_dir)
     if settings.langfuse_configured:
-        return LangfuseTracer(settings)
-    return JsonlTracer(settings.traces_dir)
+        return MirroredTracer(LangfuseTracer(settings), mirror)
+    return mirror
 
 
 def _now_iso() -> str:

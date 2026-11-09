@@ -1,0 +1,37 @@
+import sqlite3
+
+from sqlalchemy import inspect
+
+from rampart.db import init_db, make_engine
+
+
+def test_an_m1_database_gains_the_m2_columns(tmp_path):
+    path = tmp_path / "old.sqlite3"
+    with sqlite3.connect(path) as connection:  # the M1 shape of the two changed tables
+        connection.executescript(
+            """
+            CREATE TABLE users (id INTEGER PRIMARY KEY, username VARCHAR(64) NOT NULL UNIQUE,
+                password_hash VARCHAR(255) NOT NULL, role VARCHAR(16) NOT NULL,
+                created_at DATETIME NOT NULL);
+            CREATE TABLE conversations (id VARCHAR(36) PRIMARY KEY, user_id INTEGER NOT NULL,
+                title VARCHAR(200) NOT NULL, model_id VARCHAR(200) NOT NULL,
+                created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL);
+            CREATE TABLE messages (id VARCHAR(36) PRIMARY KEY, conversation_id VARCHAR(36) NOT NULL,
+                role VARCHAR(16) NOT NULL, content TEXT NOT NULL, created_at DATETIME NOT NULL,
+                model_id VARCHAR(200), provider VARCHAR(32), input_tokens INTEGER,
+                output_tokens INTEGER, cost_usd FLOAT, latency_ms INTEGER, trace_id VARCHAR(64),
+                status VARCHAR(16) NOT NULL, error TEXT);
+            INSERT INTO users VALUES (1, 'alice', 'x', 'user', '2026-11-06 10:00:00');
+            INSERT INTO conversations VALUES ('c1', 1, 'Old', 'm', '2026-11-06 10:00:00',
+                '2026-11-06 10:00:00');
+            """
+        )
+    engine = make_engine(path)
+    init_db(engine)
+    inspector = inspect(engine)
+    assert "help_mode" in {c["name"] for c in inspector.get_columns("conversations")}
+    assert {"citations", "retrieval_mode"} <= {c["name"] for c in inspector.get_columns("messages")}
+    assert {"sources", "passages", "project_profiles", "model_calls"} <= set(inspector.get_table_names())
+    with engine.connect() as connection:
+        assert connection.exec_driver_sql("SELECT help_mode FROM conversations").scalar() == 0
+    init_db(engine)  # running again changes nothing

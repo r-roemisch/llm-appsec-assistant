@@ -1,6 +1,6 @@
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
-from helpers import Api, by_name, joined_deltas, make_user
+from helpers import Api, by_name, chat_default, joined_deltas, make_user
 
 
 def test_turn_streams_and_persists(app, scripted):
@@ -16,7 +16,7 @@ def test_turn_streams_and_persists(app, scripted):
 
     start = by_name(events, "start")[0]
     assert start["user_message"]["content"] == "Hello Rampart, what is prompt injection?"
-    assert start["model_id"] == "anthropic/claude-haiku-5.5"
+    assert start["model_id"] == chat_default(app)
     assert joined_deltas(events) == "The first reply."
     assert by_name(events, "usage")[0] == {"input_tokens": 12, "output_tokens": 7, "cost_usd": 0.001}
 
@@ -59,7 +59,7 @@ def test_switch_model_mid_conversation(app, factory):
     alice = Api(app, "alice")
     cid = alice.new_conversation()["id"]
     alice.send(cid, "with the default model")
-    assert factory.calls[-1][0].id == "anthropic/claude-haiku-5.5"
+    assert factory.calls[-1][0].id == chat_default(app)
 
     patched = alice.patch(f"/api/conversations/{cid}", json={"model_id": "ollama/qwen3:8b"})
     assert patched.status_code == 200 and patched.json()["model_id"] == "ollama/qwen3:8b"
@@ -128,3 +128,19 @@ def test_long_first_message_makes_a_short_title(app):
     alice.send(cid, "word " * 40)
     title = alice.get(f"/api/conversations/{cid}").json()["conversation"]["title"]
     assert len(title) <= 60 and title.endswith("…")
+
+
+def test_ollama_offline_gives_a_clear_error(app, scripted):
+    """P6-A22: a local model whose Ollama is not running fails with a message a user can act on."""
+    import httpx
+
+    def refuse(_messages):
+        raise httpx.ConnectError("All connection attempts failed")
+
+    make_user(app, "alice")
+    alice = Api(app, "alice")
+    cid = alice.new_conversation(model_id="ollama/qwen3:8b")["id"]
+    scripted.responder = refuse
+    error = by_name(alice.send(cid, "hello"), "error")[0]["message"]
+    assert "could not be reached" in error and "Ollama is not answering at" in error
+    assert "ollama serve" in error

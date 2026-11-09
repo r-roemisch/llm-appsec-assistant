@@ -1,4 +1,9 @@
-"""Token and cost totals per user and per Model, read from the stored assistant messages."""
+"""Token and cost totals per user and per Model.
+
+Overall and per-user totals come from the assistant messages (each holds its turn's total);
+per-Model totals come from the Model-call ledger, so the grader and embedding Models that
+helped a turn are counted under their own ids.
+"""
 
 from __future__ import annotations
 
@@ -7,7 +12,7 @@ from dataclasses import dataclass, field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from rampart.models import Conversation, Message, User
+from rampart.models import Conversation, Message, ModelCall, User
 
 
 @dataclass(frozen=True)
@@ -65,7 +70,21 @@ class UsageService:
             base = base.where(Conversation.user_id == user_id)
         overall = _row("all", *self.db.execute(base).one())
 
-        by_model_query = base.add_columns(Message.model_id).group_by(Message.model_id)
+        by_model_query = (
+            select(
+                func.count(func.distinct(ModelCall.message_id)),
+                func.coalesce(func.sum(ModelCall.input_tokens), 0),
+                func.coalesce(func.sum(ModelCall.output_tokens), 0),
+                func.coalesce(func.sum(ModelCall.cost_usd), 0.0),
+                ModelCall.model_id,
+            )
+            .select_from(ModelCall)
+            .join(Message, Message.id == ModelCall.message_id)
+            .join(Conversation, Conversation.id == Message.conversation_id)
+            .group_by(ModelCall.model_id)
+        )
+        if user_id is not None:
+            by_model_query = by_model_query.where(Conversation.user_id == user_id)
         by_model = [
             _row(model_id or "unknown", count, inp, out, cost)
             for count, inp, out, cost, model_id in self.db.execute(by_model_query)

@@ -35,6 +35,7 @@ export async function* parseSSE(
   signal?.addEventListener("abort", cancel, { once: true });
 
   let buffer = "";
+  let finished = false;
   let eventName = "";
   let dataLines: string[] = [];
   let hasData = false;
@@ -74,7 +75,10 @@ export async function* parseSSE(
   try {
     for (;;) {
       const { value, done } = await reader.read();
-      if (done) break;
+      if (done) {
+        finished = true;
+        break;
+      }
       buffer += decoder.decode(value, { stream: true });
       let newline = buffer.indexOf("\n");
       while (newline !== -1) {
@@ -99,6 +103,8 @@ export async function* parseSSE(
     throw error;
   } finally {
     signal?.removeEventListener("abort", cancel);
+    // The consumer stopped early (for example after a final event): close the connection.
+    if (!finished) cancel();
     reader.releaseLock();
   }
 }

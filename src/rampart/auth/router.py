@@ -123,10 +123,13 @@ def reset_password(
 @admin_router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_user(
     user_id: int,
+    request: Request,
     admin: User = Depends(require_admin),
     auth: AuthService = Depends(get_auth),
     db: Session = Depends(get_db),
 ) -> Response:
+    if admin.id != user_id and db.get(User, user_id) is not None:
+        request.app.state.knowledge.delete_user_vectors(user_id)  # uploads go with the account
     auth.delete_user(user_id, admin)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)

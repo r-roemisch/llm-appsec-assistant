@@ -70,6 +70,16 @@ def test_factory_builds_each_provider_or_explains(tmp_path):
     ollama = ProviderChatModelFactory(configured).build(local, GenerationSettings(None, 256))
     assert type(ollama).__name__ == "ChatOllama"
     assert ollama.model == "qwen3:8b" and ollama.num_predict == 256
+    assert ollama.num_ctx == 16384  # never Ollama's 4096 default, which cuts the system prompt
+    assert ollama.reasoning is False  # no thinking by default: CPU inference is slow
+
+    thinking = load_settings(_env_file=None, data_dir=tmp_path, openrouter_api_key=None,
+                             langfuse_public_key=None, langfuse_secret_key=None,
+                             ollama_thinking=True, ollama_num_ctx=8192)
+    answers = ProviderChatModelFactory(thinking).build(local, GenerationSettings())
+    grader = ProviderChatModelFactory(thinking).build(local, GenerationSettings(), purpose="grader")
+    assert answers.reasoning is None and answers.num_ctx == 8192  # the model's own default
+    assert grader.reasoning is False  # routing and grading never think
 
 
 def test_catalog_validation():
@@ -99,3 +109,16 @@ def test_catalog_validation():
     fails(lambda c: c["models"].append({"id": "qwen3", "provider": "ollama", "kind": "chat", "tier": "cheap"}))
     fails(lambda c: c["models"][0].update(provider="azure"))
     fails(lambda c: c["slots"]["chat"].update(temperature=5))
+
+
+def test_openrouter_calls_retry_with_backoff_and_time_out():
+    """P6-A22: Provider errors are retried (the OpenAI client backs off exponentially) before a
+    clear error; every call has a timeout."""
+    from pydantic import SecretStr
+
+    from rampart.config import load_settings
+
+    configured = load_settings(_env_file=None, openrouter_api_key=SecretStr("sk-or-test"))
+    spec = ModelSpec(id="openai/gpt-6-luna", provider="openrouter", display_name="L", kind="chat", tier="cheap")
+    model = ProviderChatModelFactory(configured).build(spec, GenerationSettings(None, 256))
+    assert model.max_retries == 2 and model.request_timeout == 120

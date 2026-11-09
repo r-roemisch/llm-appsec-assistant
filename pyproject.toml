@@ -23,6 +23,13 @@ dependencies = [
     "typer>=0.27",
     "pyyaml>=6.0",
     "httpx>=0.28",
+    "chromadb>=1.5.9",
+    "rank-bm25>=0.2.2",
+    "pypdf>=7.0.0",
+    "python-multipart>=0.0.33",
+    "jsonschema>=4.26",
+    "mcp>=2.3.0",
+    "deepeval>=4.3.3",
 ]
 
 [project.scripts]
@@ -48,7 +55,9 @@ asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
 markers = ["live: needs provider keys and network; excluded by default"]
-addopts = "-m 'not live'"
+# DeepEval registers a pytest plugin (with telemetry) in every session; Rampart's own tests
+# never load it. The eval runner calls DeepEval's metrics directly, with telemetry off.
+addopts = "-m 'not live' -p no:deepeval"
 
 [tool.ruff]
 line-length = 100

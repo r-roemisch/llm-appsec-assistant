@@ -46,6 +46,29 @@ export function formatNumber(value: number | null | undefined): string {
   return new Intl.NumberFormat("en-US").format(value);
 }
 
+/** "1 passage", "1,284 passages". */
+export function formatCount(count: number, singular: string, plural = `${singular}s`): string {
+  return `${formatNumber(count)} ${count === 1 ? singular : plural}`;
+}
+
+/**
+ * File sizes in binary units, as upload limits are set: "812 B", "1.5 KB",
+ * "12 KB", "5 MB"; an em dash when unknown.
+ */
+export function formatBytes(bytes: number | null | undefined): string {
+  if (isMissing(bytes)) return EM_DASH;
+  if (Math.abs(bytes) < 1024) return `${bytes} B`;
+  const units = ["KB", "MB", "GB", "TB"];
+  let value = bytes / 1024;
+  let unit = 0;
+  const round = (n: number) => (Math.abs(n) >= 10 ? Math.round(n) : Math.round(n * 10) / 10);
+  while (Math.abs(round(value)) >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  return `${round(value)} ${units[unit]}`;
+}
+
 /** Stat-tile value: grouped below ten thousand, compact above. */
 export function formatCompact(value: number | null | undefined): string {
   if (isMissing(value)) return EM_DASH;
@@ -81,6 +104,13 @@ export function formatRelativeTime(iso: string, now: number = Date.now()): strin
   }).format(date);
 }
 
+/** "Nov 6, 2026" in the viewer's time zone; empty for invalid input. */
+export function formatDate(iso: string): string {
+  const time = Date.parse(iso);
+  if (Number.isNaN(time)) return "";
+  return new Intl.DateTimeFormat("en-US", { dateStyle: "medium" }).format(new Date(time));
+}
+
 /** "Nov 6, 2026, 10:15 AM" in the viewer's time zone; empty for invalid input. */
 export function formatDateTime(iso: string): string {
   const time = Date.parse(iso);
@@ -88,4 +118,45 @@ export function formatDateTime(iso: string): string {
   return new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short" }).format(
     new Date(time),
   );
+}
+
+/**
+ * "Nov 6, 10:15:30 AM" for audit tables: the year only when it is not the
+ * current one; empty for invalid input.
+ */
+export function formatShortDateTime(iso: string, now: number = Date.now()): string {
+  const time = Date.parse(iso);
+  if (Number.isNaN(time)) return "";
+  const date = new Date(time);
+  const sameYear = date.getFullYear() === new Date(now).getFullYear();
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    ...(sameYear ? {} : { year: "numeric" }),
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+  }).format(date);
+}
+
+/**
+ * Time left until a deadline: "14:05" below an hour, "3 h 20 min" below a
+ * day, then "2 d 4 h"; "0:00" once it has passed.
+ */
+export function formatCountdown(ms: number): string {
+  if (Number.isNaN(ms) || ms <= 0) return "0:00";
+  const totalSeconds = Math.ceil(ms / 1000);
+  if (totalSeconds < 3600) {
+    const minutes = Math.floor(totalSeconds / 60);
+    return `${minutes}:${String(totalSeconds % 60).padStart(2, "0")}`;
+  }
+  const totalMinutes = Math.floor(totalSeconds / 60);
+  if (totalMinutes < 24 * 60) {
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    return minutes ? `${hours} h ${minutes} min` : `${hours} h`;
+  }
+  const days = Math.floor(totalMinutes / 1440);
+  const hours = Math.floor((totalMinutes % 1440) / 60);
+  return hours ? `${days} d ${hours} h` : `${days} d`;
 }

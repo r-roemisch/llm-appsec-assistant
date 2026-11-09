@@ -1,6 +1,7 @@
+import { RetrievalModeBadge } from "@/components/common/RetrievalModeBadge";
 import { formatCost, formatLatency, formatTokens } from "@/lib/format";
 import { providerLabel } from "@/lib/labels";
-import type { Provider } from "@/lib/types";
+import type { Provider, RetrievalMode } from "@/lib/types";
 
 interface MessageMetaProps {
   modelName: string;
@@ -9,10 +10,12 @@ interface MessageMetaProps {
   outputTokens: number | null;
   costUsd: number | null;
   latencyMs: number | null;
+  /** How the turn searched the Knowledge Base; null when it did not. */
+  retrievalMode?: RetrievalMode | null;
   streaming?: boolean;
 }
 
-/** The small line under an answer: Model, tokens, cost, latency. */
+/** The small line under an answer: Model, tokens, cost, latency, and a badge for keyword-only retrieval. */
 export function MessageMeta({
   modelName,
   provider,
@@ -20,6 +23,7 @@ export function MessageMeta({
   outputTokens,
   costUsd,
   latencyMs,
+  retrievalMode,
   streaming,
 }: MessageMetaProps) {
   const hasTokens = inputTokens !== null || outputTokens !== null;
@@ -42,6 +46,7 @@ export function MessageMeta({
           {formatLatency(latencyMs)}
         </span>
       ) : null}
+      {retrievalMode === "bm25" ? <RetrievalModeBadge mode="bm25" explain /> : null}
       {streaming ? <span>Streaming</span> : null}
     </div>
   );
