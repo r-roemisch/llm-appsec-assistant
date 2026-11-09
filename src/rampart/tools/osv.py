@@ -8,6 +8,8 @@ raises into the turn. OSV data is external (Provenance ``API``).
 
 from __future__ import annotations
 
+import asyncio
+import re
 from datetime import timedelta
 from typing import Any
 
@@ -19,7 +21,10 @@ from rampart.db import session_scope, utcnow
 from rampart.models import OsvCacheEntry
 
 OSV_QUERY_URL = "https://api.osv.dev/v1/query"
+OSV_BATCH_URL = "https://api.osv.dev/v1/querybatch"  # (M7) at most 1000 queries per request
+OSV_VULN_URL = "https://api.osv.dev/v1/vulns/"  # + an id, which is checked before it is used
 MAX_VULNS = 20
+_VULN_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{1,99}$")
 SEVERITY_RANK = {"CRITICAL": 0, "HIGH": 1, "MODERATE": 2, "MEDIUM": 2, "LOW": 3}
 
 
@@ -27,7 +32,7 @@ class OsvUnavailable(RuntimeError):
     pass
 
 
-def _severity(vuln: dict[str, Any]) -> str | None:
+def severity_of(vuln: dict[str, Any]) -> str | None:
     label = (vuln.get("database_specific") or {}).get("severity")
     if isinstance(label, str) and label:
         return label.upper()
@@ -37,7 +42,7 @@ def _severity(vuln: dict[str, Any]) -> str | None:
     return None
 
 
-def _fixed_versions(vuln: dict[str, Any], package: str) -> list[str]:
+def fixed_versions(vuln: dict[str, Any], package: str) -> list[str]:
     fixed: list[str] = []
     for affected in vuln.get("affected") or []:
         name = ((affected.get("package") or {}).get("name") or "").lower()
@@ -61,9 +66,9 @@ def summarise(payload: dict[str, Any], package: str) -> list[dict[str, Any]]:
                 "id": str(vuln["id"]),
                 "aliases": [str(a) for a in vuln.get("aliases") or []][:5],
                 "summary": str(summary)[:240],
-                "severity": _severity(vuln),
+                "severity": severity_of(vuln),
                 "published": vuln.get("published"),
-                "fixed_versions": _fixed_versions(vuln, package)[:5],
+                "fixed_versions": fixed_versions(vuln, package)[:5],
                 "references": [
                     str(r.get("url"))
                     for r in vuln.get("references") or []
@@ -73,6 +78,28 @@ def summarise(payload: dict[str, Any], package: str) -> list[dict[str, Any]]:
         )
     vulns.sort(key=lambda v: (SEVERITY_RANK.get(str(v["severity"]), 4), v["id"]))
     return vulns
+
+
+def trim_record(vuln: dict[str, Any]) -> dict[str, Any]:
+    """What the dependency check needs from a full OSV record, without the long version lists."""
+    return {
+        "id": vuln.get("id"),
+        "aliases": list(vuln.get("aliases") or [])[:5],
+        "summary": vuln.get("summary"),
+        "details": str(vuln.get("details") or "")[:300],
+        "severity": list(vuln.get("severity") or [])[:2],
+        "database_specific": {"severity": (vuln.get("database_specific") or {}).get("severity")},
+        "published": vuln.get("published"),
+        "affected": [
+            {
+                "package": {"name": (a.get("package") or {}).get("name")},
+                "ranges": [{"events": r.get("events") or []} for r in a.get("ranges") or []][:5],
+            }
+            for a in vuln.get("affected") or []
+            if isinstance(a, dict)
+        ][:10],
+        "references": [r for r in vuln.get("references") or [] if isinstance(r, dict)][:3],
+    }
 
 
 class OsvClient:
@@ -93,18 +120,110 @@ class OsvClient:
     def cache_key(ecosystem: str, package: str, version: str | None) -> str:
         return f"{ecosystem}:{package}:{version or '*'}"
 
+    def _client(self) -> httpx.AsyncClient:
+        headers = {
+            "User-Agent": f"rampart/{__version__} (+https://github.com/r-roemisch/llm-appsec-assistant)"
+        }
+        return httpx.AsyncClient(timeout=self.timeout, transport=self.transport, headers=headers)
+
+    async def _request(
+        self, client: httpx.AsyncClient, method: str, url: str, body: Any = None
+    ) -> dict[str, Any]:
+        last = "no response"
+        for _attempt in range(2):
+            try:
+                response = await client.request(method, url, json=body)
+            except httpx.HTTPError as exc:
+                last = f"{type(exc).__name__}: {exc}"
+                continue
+            if response.status_code == 200:
+                try:
+                    payload = response.json()
+                except ValueError as exc:
+                    raise OsvUnavailable("OSV.dev returned something that is not JSON") from exc
+                return payload if isinstance(payload, dict) else {}
+            last = f"status {response.status_code}"
+            if response.status_code < 500 and response.status_code != 429:
+                break
+        raise OsvUnavailable(f"OSV.dev could not be reached ({last})")
+
+    async def batch_ids(self, queries: list[tuple[str, str, str]]) -> list[list[str]]:
+        """Vulnerability ids per (ecosystem, package, version), in order, from OSV's batch query.
+        A package with more than one page of results keeps the first page."""
+        found: list[list[str]] = []
+        async with self._client() as client:
+            for start in range(0, len(queries), 1000):
+                chunk = queries[start : start + 1000]
+                body = {
+                    "queries": [
+                        {"package": {"ecosystem": e, "name": n}, "version": v} for e, n, v in chunk
+                    ]
+                }
+                payload = await self._request(client, "POST", OSV_BATCH_URL, body)
+                results = payload.get("results") or []
+                for index in range(len(chunk)):
+                    result = results[index] if index < len(results) else {}
+                    vulns = (result or {}).get("vulns") or []
+                    found.append(
+                        [str(v["id"]) for v in vulns if isinstance(v, dict) and v.get("id")]
+                    )
+        return found
+
+    async def vulnerabilities(
+        self, ids: list[str], concurrency: int = 8
+    ) -> dict[str, dict[str, Any] | None]:
+        """Full OSV records by id, cached like single lookups; None for one that could not be
+        fetched. Ids are checked against OSV's id shape before they go into a URL."""
+        now = utcnow()
+        out: dict[str, dict[str, Any] | None] = {}
+        stale: dict[str, dict[str, Any]] = {}
+        missing: list[str] = []
+        with session_scope(self.session_factory) as db:
+            for vuln_id in ids:
+                cached = db.get(OsvCacheEntry, f"vuln:{vuln_id}")
+                if cached is not None and now - cached.fetched_at < self.ttl:
+                    out[vuln_id] = dict(cached.payload)
+                else:
+                    if cached is not None:
+                        stale[vuln_id] = dict(cached.payload)
+                    missing.append(vuln_id)
+        gate = asyncio.Semaphore(concurrency)
+        fetched: dict[str, dict[str, Any]] = {}
+
+        async def one(client: httpx.AsyncClient, vuln_id: str) -> None:
+            if not _VULN_ID.match(vuln_id):
+                out[vuln_id] = None
+                return
+            async with gate:
+                try:
+                    record = await self._request(client, "GET", OSV_VULN_URL + vuln_id)
+                    fetched[vuln_id] = trim_record(record)
+                except OsvUnavailable:
+                    out[vuln_id] = stale.get(vuln_id)
+
+        if missing:
+            async with self._client() as client:
+                await asyncio.gather(*(one(client, vuln_id) for vuln_id in missing))
+        out.update(fetched)
+        if fetched:
+            with session_scope(self.session_factory) as db:
+                for vuln_id, payload in fetched.items():
+                    row = db.get(OsvCacheEntry, f"vuln:{vuln_id}")
+                    if row is None:
+                        db.add(
+                            OsvCacheEntry(key=f"vuln:{vuln_id}", payload=payload, fetched_at=now)
+                        )
+                    else:
+                        row.payload, row.fetched_at = payload, now
+        return out
+
     async def _fetch(self, ecosystem: str, package: str, version: str | None) -> dict[str, Any]:
         body: dict[str, Any] = {"package": {"name": package, "ecosystem": ecosystem}}
         if version:
             body["version"] = version
-        headers = {
-            "User-Agent": f"rampart/{__version__} (+https://github.com/r-roemisch/llm-appsec-assistant)"
-        }
         delay_attempts = 2
         last = "no response"
-        async with httpx.AsyncClient(
-            timeout=self.timeout, transport=self.transport, headers=headers
-        ) as client:
+        async with self._client() as client:
             for attempt in range(delay_attempts):
                 try:
                     response = await client.post(OSV_QUERY_URL, json=body)

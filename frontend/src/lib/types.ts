@@ -239,13 +239,49 @@ export interface ProfileOut {
   exists: boolean;
   /** Free text, up to 2000 characters. */
   stack: string;
-  /** Up to 50. */
+  /** Up to 1000 (50 before M7). */
   packages: PackageRef[];
   /** Registered Targets, filled from M4; always [] in M2. */
   target_ids: string[];
   updated_at: string | null;
   /** Allowed PackageRef.ecosystem values. */
   ecosystems: string[];
+}
+
+/** (M7) The Dependency File formats the server reads. */
+export type DependencyFormat =
+  | "requirements.txt"
+  | "uv.lock"
+  | "poetry.lock"
+  | "package-lock.json"
+  | "pyproject.toml"
+  | "package.json";
+
+/** (M7) A Dependency File to read; parsed in memory and never stored. */
+export interface DependencyFileIn {
+  content: string;
+  filename?: string | null;
+  /** Detected from the filename or the content when absent. */
+  format?: DependencyFormat | null;
+}
+
+export interface DependencyImportIn extends DependencyFileIn {
+  /** True: the imported packages replace every package in the profile. */
+  replace: boolean;
+}
+
+export interface ParsedPackageOut extends PackageRef {
+  /** False when the file gives no single exact version (the package cannot be checked). */
+  pinned: boolean;
+}
+
+export interface DependencyFileOut {
+  format: DependencyFormat;
+  packages: ParsedPackageOut[];
+  pinned: number;
+  unpinned: number;
+  /** Lines or entries the parser did not read, each with the reason (at most 50). */
+  skipped: string[];
 }
 
 export interface ProfileIn {

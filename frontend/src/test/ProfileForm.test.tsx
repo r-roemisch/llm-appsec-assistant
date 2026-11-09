@@ -61,7 +61,7 @@ describe("buildProfileInput", () => {
       name: `pkg-${index}`,
       version: "",
     }));
-    expect(buildProfileInput("", many, ECOSYSTEMS)).toEqual({ ok: false, error: "A profile holds at most 50 packages." });
+    expect(buildProfileInput("", many, ECOSYSTEMS)).toEqual({ ok: false, error: "A profile holds at most 1,000 packages." });
   });
 
   it("counts characters as code points, like the server", () => {
@@ -90,15 +90,28 @@ describe("ProfileForm", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("allows at most 50 packages", () => {
-    const packages = Array.from({ length: 50 }, (_, index) => ({ ecosystem: "PyPI", name: `pkg-${index}`, version: null }));
+  it("allows at most 1,000 packages and shows the first 50 until asked", () => {
+    const packages = Array.from({ length: 1000 }, (_, index) => ({ ecosystem: "PyPI", name: `pkg-${index}`, version: null }));
     renderWithProviders(
       <ProfileForm profile={profile({ exists: true, packages, updated_at: "2026-11-08T09:00:00Z" })} />,
     );
 
-    expect(screen.getByText("50 / 50")).toBeInTheDocument();
+    expect(screen.getByText("1,000 / 1,000")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Add package" })).toBeDisabled();
-    expect(screen.getByText("A profile holds at most 50 packages.")).toBeInTheDocument();
+    expect(screen.getByText("A profile holds at most 1,000 packages.")).toBeInTheDocument();
+    expect(screen.getByLabelText("Name of package 50")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Name of package 51")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Show all 1,000 packages" })).toBeInTheDocument();
+  });
+
+  it("shows every row of a long list when asked", async () => {
+    const packages = Array.from({ length: 60 }, (_, index) => ({ ecosystem: "PyPI", name: `pkg-${index}`, version: null }));
+    const user = userEvent.setup();
+    renderWithProviders(
+      <ProfileForm profile={profile({ exists: true, packages, updated_at: "2026-11-08T09:00:00Z" })} />,
+    );
+    await user.click(screen.getByRole("button", { name: "Show all 60 packages" }));
+    expect(screen.getByLabelText("Name of package 60")).toBeInTheDocument();
   });
 
   it("adds and removes package rows and saves them", async () => {

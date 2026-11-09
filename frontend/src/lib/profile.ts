@@ -2,7 +2,7 @@ import { formatNumber } from "@/lib/format";
 import type { PackageRef, ProfileIn } from "@/lib/types";
 
 /** The Project Profile limits from docs/API.md; the server enforces them too. */
-export const PROFILE_LIMITS = { stack: 2000, packages: 50, name: 214, version: 64 } as const;
+export const PROFILE_LIMITS = { stack: 2000, packages: 1000, name: 214, version: 64 } as const;
 
 /** One package row as typed in the form. */
 export interface PackageDraft {
@@ -55,7 +55,7 @@ export function buildProfileInput(
     packages.push({ ecosystem: row.ecosystem, name, version: version || null });
   }
   if (packages.length > PROFILE_LIMITS.packages) {
-    return { ok: false, error: `A profile holds at most ${PROFILE_LIMITS.packages} packages.` };
+    return { ok: false, error: `A profile holds at most ${formatNumber(PROFILE_LIMITS.packages)} packages.` };
   }
   return { ok: true, input: { stack, packages, target_ids: [...targetIds] } };
 }

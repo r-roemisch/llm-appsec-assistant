@@ -87,6 +87,7 @@ def build_report(
         for f in (r.result or {}).get("findings", [])
     ]
     lookups = [r for r in records if r.tool == "lookup_vulnerabilities"]
+    checks = [r for r in records if r.tool == "check_dependencies"]
     tests = [r for r in records if r.tool == "run_injection_test"]
     cited: dict[str, dict[str, Any]] = {}
     for message in messages:
@@ -99,6 +100,7 @@ def build_report(
         out.append(f"- Questions asked: {sum(1 for m in messages if m.role == 'user')}")
         out.append(f"- Prompt and tool-schema findings: {len(findings)}")
         out.append(f"- Vulnerability lookups: {len(lookups)}")
+        out.append(f"- Dependency checks: {len(checks)}")
         out.append(f"- Injection test runs: {len(tests)}")
         out.append(f"- Sources cited: {len(cited)}")
         if profile:
@@ -123,8 +125,38 @@ def build_report(
 
     if "vulnerabilities" in sections:
         out += ["## Known vulnerabilities (OSV.dev)", ""]
-        if not lookups:
+        if not lookups and not checks:
             out.append("No package was looked up in this conversation.")
+        for record in checks:
+            result = record.result or {}
+            scope = result.get("ecosystem") or "all ecosystems"
+            out.append(f"### Dependency check of the Project Profile ({scope})")
+            out.append("")
+            out.append(
+                f"{result.get('checked', 0)} of {result.get('packages', 0)} packages checked; "
+                f"{result.get('vulnerabilities', 0)} known vulnerabilities in "
+                f"{result.get('vulnerable_packages', 0)} packages."
+            )
+            if result.get("not_checked"):
+                out.append(
+                    f"Not checked because no exact version is known: {result['not_checked']} "
+                    f"({_cell(', '.join(result.get('not_checked_names') or []))})."
+                )
+            rows = result.get("rows") or []
+            if rows:
+                out += ["", "| Package | Version | ID | Severity | Summary | Fixed in |"]
+                out.append("|---|---|---|---|---|---|")
+                for row in rows:
+                    out.append(
+                        f"| {_cell(row.get('ecosystem'))} {_cell(row.get('package'))} "
+                        f"| {_cell(row.get('version'))} | {_cell(row.get('id'))} "
+                        f"| {_cell(row.get('severity') or 'unrated')} "
+                        f"| {_cell(row.get('summary'))} "
+                        f"| {_cell(', '.join(row.get('fixed') or []))} |"
+                    )
+            if result.get("more_rows"):
+                out.append(f"\n{result['more_rows']} further rows were not kept.")
+            out.append("")
         for record in lookups:
             result = record.result or {}
             version = result.get("version") or "(any version)"

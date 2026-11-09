@@ -16,6 +16,9 @@ import { buildProfileInput, countCharacters, PROFILE_LIMITS, type PackageDraft }
 import type { ProfileOut, TargetOut } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
+/** Package rows shown before "Show all"; the rest stay in the form and are saved with it. */
+const COLLAPSED_ROWS = 50;
+
 /** The attached Target ids, as a stable sorted string for comparison. */
 function idsKey(ids: Iterable<string>): string {
   return [...ids].sort().join("\u0000");
@@ -108,6 +111,9 @@ export function ProfileForm({ profile, targets = [] }: { profile: ProfileOut; ta
   const [error, setError] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  // An imported lock file can hold hundreds of packages: show the first rows until asked.
+  const [showAllRows, setShowAllRows] = useState(false);
+  const visibleRows = showAllRows ? rows : rows.slice(0, COLLAPSED_ROWS);
 
   const ecosystems = profile.ecosystems;
   const stackLength = countCharacters(stack);
@@ -143,6 +149,7 @@ export function ProfileForm({ profile, targets = [] }: { profile: ProfileOut; ta
     nextKey.current += 1;
     const ecosystem = rows.at(-1)?.ecosystem ?? ecosystems[0] ?? "";
     setRows((current) => [...current, { key, ecosystem, name: "", version: "" }]);
+    setShowAllRows(true); // the new row is at the end of the list
   }
 
   function onSubmit(event: FormEvent<HTMLFormElement>) {
@@ -194,7 +201,7 @@ export function ProfileForm({ profile, targets = [] }: { profile: ProfileOut; ta
             Packages
           </span>
           <span className="text-xs text-muted-foreground tabular-nums">
-            {rows.length} / {PROFILE_LIMITS.packages}
+            {formatNumber(rows.length)} / {formatNumber(PROFILE_LIMITS.packages)}
           </span>
         </div>
         {rows.length > 0 ? (
@@ -208,7 +215,7 @@ export function ProfileForm({ profile, targets = [] }: { profile: ProfileOut; ta
               <span>Version</span>
             </div>
             <ul className="space-y-2">
-              {rows.map((row, index) => (
+              {visibleRows.map((row, index) => (
                 <PackageRowEditor
                   key={row.key}
                   row={row}
@@ -220,6 +227,11 @@ export function ProfileForm({ profile, targets = [] }: { profile: ProfileOut; ta
                 />
               ))}
             </ul>
+            {rows.length > visibleRows.length ? (
+              <Button type="button" variant="ghost" size="sm" onClick={() => setShowAllRows(true)}>
+                Show all {formatNumber(rows.length)} packages
+              </Button>
+            ) : null}
           </>
         ) : (
           <p className="text-sm text-muted-foreground">No packages yet. Add the dependencies the assistant should know about.</p>
@@ -230,7 +242,9 @@ export function ProfileForm({ profile, targets = [] }: { profile: ProfileOut; ta
             Add package
           </Button>
           {full ? (
-            <span className="text-xs text-muted-foreground">A profile holds at most {PROFILE_LIMITS.packages} packages.</span>
+            <span className="text-xs text-muted-foreground">
+              A profile holds at most {formatNumber(PROFILE_LIMITS.packages)} packages.
+            </span>
           ) : null}
         </div>
       </div>

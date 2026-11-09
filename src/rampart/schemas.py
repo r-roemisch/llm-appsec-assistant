@@ -296,8 +296,46 @@ class PackageRefModel(BaseModel):
 class ProfileIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     stack: str = Field(default="", max_length=2000)
-    packages: list[PackageRefModel] = Field(default_factory=list, max_length=50)
+    packages: list[PackageRefModel] = Field(default_factory=list, max_length=1000)
     target_ids: list[str] = Field(default_factory=list, max_length=20)
+
+
+class DependencyFileIn(BaseModel):
+    """(M7) A Dependency File to read; it is parsed in memory and never stored."""
+
+    model_config = ConfigDict(extra="forbid")
+    content: str = Field(min_length=1, max_length=5_000_000)
+    filename: str | None = Field(default=None, max_length=255)
+    format: (
+        Literal[
+            "requirements.txt",
+            "uv.lock",
+            "poetry.lock",
+            "package-lock.json",
+            "pyproject.toml",
+            "package.json",
+        ]
+        | None
+    ) = None  # None: detected from the filename or the content
+
+
+class DependencyImportIn(DependencyFileIn):
+    replace: bool = False  # True: the imported packages replace all packages in the profile
+
+
+class ParsedPackageOut(BaseModel):
+    ecosystem: str
+    name: str
+    version: str | None
+    pinned: bool
+
+
+class DependencyFileOut(BaseModel):
+    format: str
+    packages: list[ParsedPackageOut]
+    pinned: int
+    unpinned: int
+    skipped: list[str]
 
 
 class ProfileOut(BaseModel):

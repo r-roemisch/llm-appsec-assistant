@@ -17,6 +17,7 @@ const TOOL_LABELS: Record<string, string> = {
   search_knowledge: "Search the Knowledge Base",
   analyze_prompt: "Analyze a prompt",
   lookup_vulnerabilities: "Look up known vulnerabilities",
+  check_dependencies: "Check all Profile packages",
   generate_report: "Generate a report",
   run_injection_test: "Run an injection test",
 };

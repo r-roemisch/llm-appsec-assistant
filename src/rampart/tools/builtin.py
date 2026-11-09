@@ -1,4 +1,4 @@
-"""The five built-in Tools: manifests (policy) and executors."""
+"""The six built-in Tools: manifests (policy) and executors."""
 
 from __future__ import annotations
 
@@ -12,7 +12,13 @@ from rampart.db import session_scope
 from rampart.profile.service import ECOSYSTEMS
 from rampart.targets.runner import InjectionTestRunner, TargetUnreachable, summary_line
 from rampart.targets.suites import load_suite
-from rampart.tools.osv import OsvClient, OsvUnavailable
+from rampart.tools.osv import (
+    SEVERITY_RANK,
+    OsvClient,
+    OsvUnavailable,
+    fixed_versions,
+    severity_of,
+)
 from rampart.tools.prompt_analysis import analyze
 from rampart.tools.registry import ToolContext, ToolManifest, ToolOutput, ToolRegistry
 from rampart.tools.reports import SECTIONS, ReportService
@@ -106,6 +112,33 @@ LOOKUP_VULNERABILITIES = ToolManifest(
     cost_class="api",
     provenance="API",
 )
+
+CHECK_DEPENDENCIES = ToolManifest(
+    name="check_dependencies",
+    description=(
+        "Check every package in the user's Project Profile (or one ecosystem of them) for known "
+        "vulnerabilities on OSV.dev in one batch. Packages without an exact version are listed "
+        "as not checked. Returns counts and the most severe findings."
+    ),
+    json_schema={
+        "type": "object",
+        "properties": {
+            "ecosystem": {
+                "type": "string",
+                "enum": list(ECOSYSTEMS),
+                "description": "Only the packages of this ecosystem; leave out for all.",
+            },
+        },
+        "additionalProperties": False,
+    },
+    rate_limit_per_hour=6,
+    cost_class="api",
+    provenance="API",
+)
+MAX_DETAILS = 200  # vulnerability records fetched per check
+MAX_MODEL_ROWS = 40  # rows the Model reads; the stored result and the Report keep more
+MAX_STORED_ROWS = 150
+MAX_UNPINNED_NAMES = 50
 
 GENERATE_REPORT = ToolManifest(
     name="generate_report",
@@ -265,6 +298,112 @@ def build_registry(settings: Settings, osv: OsvClient) -> ToolRegistry:
             ),
         )
 
+    async def check_dependencies(args: dict[str, Any], ctx: ToolContext) -> ToolOutput:
+        from rampart.profile.service import ProfileService
+
+        with session_scope(ctx.session_factory) as db:
+            packages = ProfileService(db).get(ctx.user_id).packages  # the caller's own profile
+        if args.get("ecosystem"):
+            packages = [p for p in packages if p.ecosystem == args["ecosystem"]]
+        pinned = [p for p in packages if p.version]
+        unpinned = [p for p in packages if not p.version]
+        base: dict[str, Any] = {
+            "ecosystem": args.get("ecosystem"),
+            "packages": len(packages),
+            "checked": len(pinned),
+            "not_checked": len(unpinned),
+            "not_checked_names": [f"{p.ecosystem} {p.name}" for p in unpinned][:MAX_UNPINNED_NAMES],
+            "source": "OSV.dev",
+        }
+        if not pinned:
+            reason = (
+                "the Project Profile lists no packages"
+                if not packages
+                else "no package in the Project Profile has an exact version"
+            )
+            return ToolOutput(
+                data={**base, "rows": []},
+                summary=f"Nothing to check: {reason}",
+                error=f"{reason}. Import a lock file on the Project Profile page, or add versions.",
+            )
+        try:
+            ids = await osv.batch_ids([(p.ecosystem, p.name, str(p.version)) for p in pinned])
+        except OsvUnavailable as exc:
+            return ToolOutput(
+                data={**base, "rows": []},
+                summary="OSV.dev unreachable",
+                error=f"{exc}. Try again later.",
+            )
+        wanted = list(dict.fromkeys(i for found in ids for i in found))
+        records = await osv.vulnerabilities(wanted[:MAX_DETAILS])
+        rows: list[dict[str, Any]] = []
+        for package, found in zip(pinned, ids, strict=True):
+            for vuln_id in found:
+                record = records.get(vuln_id)
+                summary = ""
+                if record:
+                    summary = str(
+                        record.get("summary") or (record.get("details") or "").split("\n")[0]
+                    )
+                rows.append(
+                    {
+                        "ecosystem": package.ecosystem,
+                        "package": package.name,
+                        "version": package.version,
+                        "id": vuln_id,
+                        "severity": severity_of(record) if record else None,
+                        "summary": summary[:100],
+                        "fixed": fixed_versions(record, package.name)[:3] if record else [],
+                    }
+                )
+        rows.sort(key=lambda r: (SEVERITY_RANK.get(str(r["severity"]), 4), r["package"], r["id"]))
+        by_severity: dict[str, int] = {}
+        for row in rows:
+            label = str(row["severity"]) if row["severity"] in SEVERITY_RANK else "unrated"
+            by_severity[label] = by_severity.get(label, 0) + 1
+        vulnerable = len({(r["ecosystem"], r["package"], r["version"]) for r in rows})
+        data = {
+            **base,
+            "vulnerable_packages": vulnerable,
+            "vulnerabilities": len(rows),
+            "by_severity": by_severity,
+            "details_missing": sum(1 for i in wanted if records.get(i) is None),
+            "rows": rows[:MAX_STORED_ROWS],
+            "more_rows": max(0, len(rows) - MAX_STORED_ROWS),
+        }
+        lines = [
+            f"Checked {len(pinned)} of {len(packages)} packages on OSV.dev: {len(rows)} known "
+            f"vulnerabilities in {vulnerable} packages "
+            f"({', '.join(f'{n} {k}' for k, n in by_severity.items()) or 'none'}).",
+        ]
+        if unpinned:
+            lines.append(
+                f"Not checked, no exact version: {len(unpinned)} "
+                f"({', '.join(base['not_checked_names'][:10])}"
+                + (", ..." if len(unpinned) > 10 else "")
+                + ")."
+            )
+        if rows:
+            lines += ["", "| Package | Version | ID | Severity | Summary | Fixed in |"]
+            lines.append("|---|---|---|---|---|---|")
+            for r in rows[:MAX_MODEL_ROWS]:
+                lines.append(
+                    f"| {r['ecosystem']} {r['package']} | {r['version']} | {r['id']} | "
+                    f"{r['severity'] or 'unrated'} | {r['summary'].replace('|', '/')} | "
+                    f"{', '.join(r['fixed'])} |"
+                )
+            if len(rows) > MAX_MODEL_ROWS:
+                lines.append(
+                    f"({len(rows) - MAX_MODEL_ROWS} more rows are kept for the Report; "
+                    "generate_report includes them.)"
+                )
+        return ToolOutput(
+            data=data,
+            summary=f"{len(rows)} known vulnerabilities in {vulnerable} of {len(pinned)} "
+            "checked packages",
+            model_text="\n".join(lines),
+        )
+
     async def generate_report(args: dict[str, Any], ctx: ToolContext) -> ToolOutput:
         sections: list[str] = [str(s) for s in args.get("sections") or SECTIONS]
         conversation_id = args.get("conversation_id") or ctx.conversation_id
@@ -325,6 +464,7 @@ def build_registry(settings: Settings, osv: OsvClient) -> ToolRegistry:
     registry.register(SEARCH_KNOWLEDGE, search_knowledge)
     registry.register(ANALYZE_PROMPT, analyze_prompt)
     registry.register(LOOKUP_VULNERABILITIES, lookup_vulnerabilities)
+    registry.register(CHECK_DEPENDENCIES, check_dependencies)
     registry.register(GENERATE_REPORT, generate_report)
     registry.register(RUN_INJECTION_TEST, run_injection_test)
     return registry

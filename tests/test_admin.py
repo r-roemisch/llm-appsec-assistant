@@ -15,7 +15,8 @@ def test_users_cannot_write_tool_policy_or_the_system_prompt(app):
     assert alice.get("/api/admin/approvals").status_code == 403
     tools = alice.get("/api/tools").json()
     assert {t["name"] for t in tools} == {
-        "search_knowledge", "analyze_prompt", "lookup_vulnerabilities", "generate_report", "run_injection_test",
+        "search_knowledge", "analyze_prompt", "lookup_vulnerabilities", "check_dependencies", "generate_report",
+        "run_injection_test",
     }
     injection = next(t for t in tools if t["name"] == "run_injection_test")
     assert injection["requires_approval"] is True and injection["cost_class"] == "heavy"

@@ -39,6 +39,9 @@ import type {
   PluginCatalogOut,
   PluginDetailOut,
   PluginUpdateIn,
+  DependencyFileIn,
+  DependencyFileOut,
+  DependencyImportIn,
   ProfileIn,
   ProfileOut,
   ReportDetailOut,
@@ -418,6 +421,16 @@ export function saveProfile(input: ProfileIn): Promise<ProfileOut> {
 
 export function deleteProfile(): Promise<void> {
   return request("DELETE", "/api/profile");
+}
+
+/** (M7) What a Dependency File contains; nothing is saved. */
+export function previewDependencyFile(input: DependencyFileIn): Promise<DependencyFileOut> {
+  return request("POST", "/api/profile/dependency-file/preview", { body: input });
+}
+
+/** (M7) Merges (or with `replace`, sets) the profile's packages from a Dependency File. */
+export function importDependencyFile(input: DependencyImportIn): Promise<ProfileOut> {
+  return request("POST", "/api/profile/dependency-file/import", { body: input });
 }
 
 // Help (M2)

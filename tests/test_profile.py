@@ -28,7 +28,7 @@ def test_profile_round_trip_and_validation(app):
         {"stack": "", "packages": [{"ecosystem": "Cobol", "name": "x", "version": None}]},
         {"stack": "", "packages": [{"ecosystem": "PyPI", "name": "", "version": None}]},
         {"stack": "", "packages": [{"ecosystem": "PyPI", "name": "x", "version": "1" * 65}]},
-        {"stack": "", "packages": [{"ecosystem": "PyPI", "name": "x"}] * 51},
+        {"stack": "", "packages": [{"ecosystem": "PyPI", "name": "x"}] * 1001},
         {"stack": "", "packages": [], "target_ids": ["t1"]},
     ]
     for body in bad:

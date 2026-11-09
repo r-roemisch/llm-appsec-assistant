@@ -7,6 +7,7 @@ import {
   FlaskConicalIcon,
   HourglassIcon,
   LoaderCircleIcon,
+  PackageCheckIcon,
   PackageSearchIcon,
   PuzzleIcon,
   ScanTextIcon,
@@ -38,6 +39,7 @@ const TOOL_ICONS: Record<string, LucideIcon> = {
   search_knowledge: SearchIcon,
   analyze_prompt: ScanTextIcon,
   lookup_vulnerabilities: PackageSearchIcon,
+  check_dependencies: PackageCheckIcon,
   generate_report: FileTextIcon,
   run_injection_test: FlaskConicalIcon,
 };

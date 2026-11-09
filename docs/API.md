@@ -216,6 +216,7 @@ interface HelpDocOut {
 interface ToolCallOut {
   id: string;                         // the Model's Tool call id
   tool: string;                       // "search_knowledge", "analyze_prompt", "lookup_vulnerabilities",
+                                      // (M7) "check_dependencies",
                                       // "generate_report", "run_injection_test", or (M5) a Plugin
                                       // Tool "<plugin_id>__<tool>" (built-in names never contain "__")
   arguments: Record<string, unknown>; // secrets redacted, long strings shortened
@@ -714,8 +715,24 @@ started with `rampart demo-target --profile secure|vulnerable`.
 | Method | Path | Auth | Body | Response |
 |---|---|---|---|---|
 | GET | `/api/profile` | session | | `ProfileOut` (with `exists: false` before the first save) |
-| PUT | `/api/profile` | session + CSRF | `ProfileIn` | `200 ProfileOut`; `422` when `stack` is over 2000 characters, there are more than 50 packages, an ecosystem is not in the list, a name is empty or too long, a version is too long, or (M4) a `target_id` is not one of the caller's own Targets |
+| PUT | `/api/profile` | session + CSRF | `ProfileIn` | `200 ProfileOut`; `422` when `stack` is over 2000 characters, there are more than 1000 packages (50 before M7), an ecosystem is not in the list, a name is empty or too long, a version is too long, or (M4) a `target_id` is not one of the caller's own Targets |
 | DELETE | `/api/profile` | session + CSRF | | `204`, also when there was no profile |
+| POST | `/api/profile/dependency-file/preview` | session + CSRF | `DependencyFileIn` | (M7) `200 DependencyFileOut`: what the file lists; nothing is saved. `422` when the file does not parse as its format |
+| POST | `/api/profile/dependency-file/import` | session + CSRF | `DependencyImportIn` | (M7) `200 ProfileOut`. Packages with the same ecosystem and name take the imported versions, new ones are added, nothing is removed; with `replace: true` the file's packages become the whole list. `422` when the file lists no PyPI or npm package, does not parse, or the result would exceed 1000 packages (the count is named) |
+
+```ts
+// (M7) A Dependency File is parsed in memory, without a Model, and never stored.
+type DependencyFormat = "requirements.txt" | "uv.lock" | "poetry.lock" | "package-lock.json"
+                      | "pyproject.toml" | "package.json";
+interface DependencyFileIn { content: string; filename?: string | null; format?: DependencyFormat | null } // content up to 5,000,000 characters; format detected when absent
+interface DependencyImportIn extends DependencyFileIn { replace: boolean }
+interface DependencyFileOut {
+  format: DependencyFormat;
+  packages: { ecosystem: "PyPI" | "npm"; name: string; version: string | null; pinned: boolean }[];
+  pinned: number; unpinned: number;
+  skipped: string[];                    // lines or entries not read, with the reason (at most 50)
+}
+```
 
 The profile is read at the start of every turn and given to the model as user-provided context; after a delete it is no longer applied.
 

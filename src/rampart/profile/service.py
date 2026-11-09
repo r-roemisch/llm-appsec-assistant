@@ -31,7 +31,8 @@ ECOSYSTEMS = (
     "SwiftURL",
 )
 MAX_STACK_CHARS = 2000
-MAX_PACKAGES = 50
+MAX_PACKAGES = 1000  # (M7) room for an imported lock file
+PROMPT_PACKAGES = 30  # more than this, and the prompt gets counts instead of the list
 MAX_TARGET_IDS = 20
 MAX_NAME_CHARS = 214
 MAX_VERSION_CHARS = 64
@@ -136,6 +137,33 @@ class ProfileService:
             raise Invalid("target_ids must be your own registered Targets")
         return list(dict.fromkeys(target_ids))
 
+    def import_packages(
+        self, user_id: int, imported: list[PackageRef], *, replace: bool = False
+    ) -> ProfileView:
+        """Merge packages read from a Dependency File: a package already in the profile (same
+        ecosystem and name) takes the imported version or versions, new ones are added, nothing
+        else is removed. With ``replace`` the imported packages become the whole list."""
+        from rampart.profile.dependency_files import package_key
+
+        if len(imported) > MAX_PACKAGES:
+            raise Invalid(
+                f"the file lists {len(imported)} packages; a Project Profile holds at most "
+                f"{MAX_PACKAGES}"
+            )
+        view = self.get(user_id)
+        if replace:
+            merged = list(imported)
+        else:
+            incoming = {package_key(p.ecosystem, p.name) for p in imported}
+            kept = [p for p in view.packages if package_key(p.ecosystem, p.name) not in incoming]
+            merged = kept + list(imported)
+        if len(merged) > MAX_PACKAGES:
+            raise Invalid(
+                f"with this file the profile would hold {len(merged)} packages; it holds at most "
+                f"{MAX_PACKAGES}. Import with 'replace all packages', or remove some first"
+            )
+        return self.save(user_id, view.stack, merged, None)
+
     def delete(self, user_id: int) -> None:
         row = self.db.get(ProjectProfile, user_id)
         if row is not None:
@@ -157,7 +185,18 @@ def profile_block(
     lines: list[str] = []
     if view.stack:
         lines.append(f"Stack: {view.stack}")
-    if view.packages:
+    if len(view.packages) > PROMPT_PACKAGES:
+        counts: dict[str, int] = {}
+        for p in view.packages:
+            counts[p.ecosystem] = counts.get(p.ecosystem, 0) + 1
+        pinned = sum(1 for p in view.packages if p.version)
+        per = ", ".join(f"{n} {eco}" for eco, n in sorted(counts.items()))
+        lines.append(
+            f"Packages: {len(view.packages)} ({per}); {pinned} with an exact version. The list is "
+            "too long to show here: call check_dependencies to check them all for known "
+            "vulnerabilities, or lookup_vulnerabilities for one package."
+        )
+    elif view.packages:
         lines.append("Packages:")
         lines += [
             f"- {p.ecosystem} {p.name}" + (f" {p.version}" if p.version else "")

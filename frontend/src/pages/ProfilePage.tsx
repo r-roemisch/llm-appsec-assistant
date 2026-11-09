@@ -1,4 +1,5 @@
 import { LoadError, LoadingRows } from "@/components/common/QueryState";
+import { DependencyImport } from "@/components/profile/DependencyImport";
 import { ProfileForm } from "@/components/profile/ProfileForm";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { useProfile } from "@/hooks/useProfile";
@@ -22,8 +23,11 @@ export function ProfilePage() {
           ) : profile.isError ? (
             <LoadError error={profile.error} onRetry={() => void profile.refetch()} />
           ) : (
-            // A new server copy (saved or deleted) resets the form.
-            <ProfileForm key={profile.data.updated_at ?? "none"} profile={profile.data} targets={targets.data ?? []} />
+            <>
+              <DependencyImport />
+              {/* A new server copy (saved, imported or deleted) resets the form. */}
+              <ProfileForm key={profile.data.updated_at ?? "none"} profile={profile.data} targets={targets.data ?? []} />
+            </>
           )}
         </div>
       </div>
