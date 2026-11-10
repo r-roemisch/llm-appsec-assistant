@@ -516,6 +516,8 @@ export interface InjectionRunTotals {
   contaminated: number;
   benign_actions: number;
   breaches: number;
+  /** Breaches whose audit log shows no execute_export step; the sink decides a breach. */
+  unlogged: number;
   verdict: TargetProfile;
   /** (M7) Whether Rampart checked the sink for its own random Sentinel or the Target graded itself. */
   sentinel_check: "run_sentinel" | "target_reported";

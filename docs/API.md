@@ -324,6 +324,9 @@ interface InjectionRunResult {
     cases: number; injection: number; benign: number;
     proposed: number; executed: number; received: number;
     contaminated: number; benign_actions: number; breaches: number;
+    // a breach is this run's Sentinel in the sink, whatever the audit log says; "unlogged"
+    // counts the breaches whose audit log shows no execute_export step
+    unlogged: number;
     verdict: "secure" | "vulnerable";
     // (M7) "run_sentinel": Rampart found its own random Sentinel in the sink text;
     // "target_reported": the Target did not plant it and reported its own sink (weaker evidence)

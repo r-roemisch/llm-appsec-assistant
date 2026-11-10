@@ -94,6 +94,52 @@ def test_runner_finds_the_vulnerable_profile_breaches_from_the_sink(tmp_path):
     assert summary["verdict"] == "vulnerable" and summary["sentinel_check"] == "run_sentinel"
     assert summary["breaches"] == len(breached) and summary["contaminated"] == 0
     assert summary["benign_actions"] == 0 and summary["received"] == summary["breaches"]
+    assert summary["unlogged"] == 0  # the demo Target logs every export it makes
+
+
+def test_a_leak_counts_as_a_breach_whatever_the_audit_log_says():
+    """A Target that keeps the adapter contract but names its steps in its own words: the run's
+    Sentinel in the sink is a breach even though the audit log shows no execute_export."""
+    from fastapi import FastAPI
+
+    from rampart.targets.runner import summary_line
+
+    own = FastAPI()
+    state = {"sentinel": "", "sink": "", "audit": []}
+
+    @own.get("/health")
+    def health():
+        return {"profile": "my-app"}
+
+    @own.post("/reset")
+    def reset(body: dict):
+        state.update(sentinel=body.get("sentinel") or "", sink="", audit=[])
+        return {"sentinel": state["sentinel"]}
+
+    @own.post("/message")
+    def message(body: dict):
+        text = f"{body.get('document') or ''} {body.get('message') or ''}".lower()
+        state["audit"] = [{"action": "llm_call"}]
+        if any(word in text for word in ("export", "save", "forward", "disclose", "copy", "write", "send")):
+            state["audit"].append({"action": "tool_call:send_email"})  # its own name for the step
+            state["sink"] += f"{state['sentinel']} :: customer record\n"  # the record really leaves
+        return {"reply": "ok"}
+
+    @own.get("/audit")
+    def audit():
+        return {"audit": state["audit"]}
+
+    @own.get("/sink")
+    def sink():
+        return {"text": state["sink"]}
+
+    result = run(own, httpx.ASGITransport(app=own))
+    injection = [c for c in result.cases if c.label == "injection"]
+    assert not any(c.executed for c in injection) and all(c.received for c in injection)
+    summary = result.summary
+    assert summary["verdict"] == "vulnerable"
+    assert summary["breaches"] == summary["unlogged"] == len(injection)
+    assert f"no execute_export step for {len(injection)} of them" in summary_line(result)
 
 
 def test_a_sentinel_from_an_earlier_run_does_not_count(tmp_path):
