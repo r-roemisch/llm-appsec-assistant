@@ -37,7 +37,7 @@ reports.
 | `rampart.sqlite3`: Project Profile, Targets | Redacted stack text, packages, loopback Target addresses | Until the user deletes them or the account is deleted |
 | `rampart.sqlite3`: Tool-call audit | Tool, redacted arguments (long strings shortened), decision, redacted result | Kept. Deleting a Conversation or an account nulls the reference, the row stays |
 | `rampart.sqlite3`: Approvals | Tool, redacted arguments, digest, decision | Deleted with the Conversation or the requesting account |
-| `rampart.sqlite3`: Guard events | Which Guard acted, a category and a short snippet | Kept. Deleting an account or a message nulls the reference |
+| `rampart.sqlite3`: Guard events | Which Guard acted, a category and a short snippet of redacted text; for a passage from a private upload only the fact that it was flagged, not its name or text (the owner's own message record keeps those) | Kept. Deleting an account or a message nulls the reference |
 | `rampart.sqlite3`: Reports | Markdown assembled from Findings, lookups, tests, Citations and redacted answers | Deleted with the account; kept if only the Conversation is deleted |
 | `rampart.sqlite3`: OSV.dev cache | Package, version, OSV.dev's answer | Fresh for 6 hours; older answers are kept as a stale fallback for when OSV.dev is unreachable |
 | `rampart.sqlite3`: Evaluation Cases, evaluation runs | Redacted question and answer from rated answers, scores | Kept; an admin deletes cases |

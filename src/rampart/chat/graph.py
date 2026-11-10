@@ -92,7 +92,10 @@ SUMMARY_KEYS = (
     "notice",
 )
 
-GuardRecorder = Callable[[str, str, str, str], dict[str, Any]]
+# (guard, action, category, detail, audit detail): the detail goes to the user's own turn; the
+# audit detail, when given, replaces it in the admin audit log (private uploads stay private).
+GuardRecorder = Callable[[str, str, str, str, str | None], dict[str, Any]]
+PRIVATE_UPLOAD_AUDIT = "A private upload (its name and text are not kept in the audit log)"
 BLOCKED_PLACEHOLDER = "[A message from the user was blocked by the input guard and is not shown.]"
 
 
@@ -200,9 +203,11 @@ def pending_calls(messages: Sequence[BaseMessage]) -> list[dict[str, Any]]:
 def build_graph(ctx: TurnContext, checkpointer: BaseCheckpointSaver | None) -> CompiledStateGraph:
     limits = ctx.limits
 
-    def guard_event(guard: str, action: str, category: str, detail: str) -> None:
+    def guard_event(
+        guard: str, action: str, category: str, detail: str, audit_detail: str | None = None
+    ) -> None:
         entry = (
-            ctx.guard(guard, action, category, detail)
+            ctx.guard(guard, action, category, detail, audit_detail)
             if ctx.guard is not None
             else {"guard": guard, "action": action, "category": category, "detail": detail}
         )
@@ -359,8 +364,10 @@ def build_graph(ctx: TurnContext, checkpointer: BaseCheckpointSaver | None) -> C
             if passage.id in scanned:
                 continue
             scanned.append(passage.id)
+            audit = PRIVATE_UPLOAD_AUDIT if passage.source_type == "upload" else None
             for category, snippet in scan_untrusted(passage.text):
-                guard_event("provenance", "flagged", category, f"{passage.source_title}: {snippet}")
+                detail = f"{passage.source_title}: {snippet}"
+                guard_event("provenance", "flagged", category, detail, audit)
         calls = 0
         relevant: list[str] = []
         if passages and ctx.grader is None:
@@ -552,8 +559,16 @@ def build_graph(ctx: TurnContext, checkpointer: BaseCheckpointSaver | None) -> C
                 )
             content = ctx.tools.model_text(name, provenance, output, manifest.max_output_chars)
             if provenance in ("API", "target", "plugin", "source"):
+                found = output.data.get("passages") or []
+                audit = (
+                    f"{name} output, which includes a private upload (its text is not kept in "
+                    "the audit log)"
+                    if any(isinstance(p, dict) and p.get("source_type") == "upload" for p in found)
+                    else None
+                )
                 for category, snippet in scan_untrusted(content):
-                    guard_event("provenance", "flagged", category, f"{name} output: {snippet}")
+                    detail = f"{name} output: {snippet}"
+                    guard_event("provenance", "flagged", category, detail, audit)
             if output.citable_ids:
                 update["citable_ids"] = ctx.citable.ids()
             _emit(

@@ -102,6 +102,17 @@ class InputVerdict:
         return self.blocked or self.analysis
 
 
+def _redacted_snippets(matches: list[Any], redacted: str, had_secrets: bool) -> list[str]:
+    """Up to three snippets for the Guard event, never with a secret the message lost.
+
+    Matches are found on the text as typed; when that held a secret, the snippets are cut from
+    the redacted text instead (so a window edge cannot keep half of a secret), and each one is
+    redacted again for decoded, obfuscated matches."""
+    if not had_secrets:
+        return [m.snippet for m in matches][:3]
+    return [redact(m.snippet).text for m in find_matches(redacted)][:3]
+
+
 def check_input(text: str, *, heuristics: bool = True) -> InputVerdict:
     cleaned = strip_invisible(text)
     hidden = cleaned != text
@@ -112,11 +123,9 @@ def check_input(text: str, *, heuristics: bool = True) -> InputVerdict:
     matches = find_matches(text)
     total = score(matches) + hidden_text_weight(text)
     categories = sorted({m.category for m in matches} | ({"hidden_text"} if hidden else set()))
-    snippets = [m.snippet for m in matches][:3]
     if total < BLOCK_THRESHOLD:
-        return InputVerdict(
-            redaction.text, total, categories, False, False, secrets, snippets, hidden
-        )
+        return InputVerdict(redaction.text, total, categories, False, False, secrets, [], hidden)
+    snippets = _redacted_snippets(matches, redaction.text, bool(secrets))
     quoted = all_quoted(matches, quoted_spans(text)) and not hidden
     direct = any(m.category in DIRECT_CATEGORIES for m in matches)
     asked_about = asks_about(text) and not DIRECT_IMPERATIVE.search(text) and not direct

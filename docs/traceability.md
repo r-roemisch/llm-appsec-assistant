@@ -39,7 +39,7 @@ was not met; the measured level is what the test pins.
 | P6-A03 | A user writes a Slot, Tool policy or the system prompt: 403 | `tests/test_admin.py::test_users_cannot_write_tool_policy_or_the_system_prompt`, `tests/test_auth.py::test_user_role_is_rejected_on_admin_routes` | |
 | P6-A04 | Admin changes the chat Slot or its settings | `tests/test_models.py::test_admin_overrides_chat_slot_and_turns_use_it` | |
 | P6-A05 | Citations; at most two rewrites | `tests/test_retrieval.py::test_answer_cites_the_knowledge_base`, `tests/test_retrieval.py::test_weak_retrieval_rewrites_at_most_twice` | real retrieval turns (m2 report); DeepEval contextual metrics (m6 report) |
-| P6-A06 | Another user's upload is never retrieved | `tests/test_knowledge.py::test_uploads_are_private_to_their_owner`, `tests/test_retrieval.py::test_uploads_stay_private_in_hybrid_search_and_chat` | mutation check (m2 report) |
+| P6-A06 | Another user's upload is never retrieved | `tests/test_knowledge.py::test_uploads_are_private_to_their_owner`, `tests/test_retrieval.py::test_uploads_stay_private_in_hybrid_search_and_chat`, `tests/test_data_protection.py::test_a_private_upload_stays_out_of_the_admin_audit_log` | mutation check (m2 report) |
 | P6-A07 | PDF, Markdown, text uploads; bad files 422 | `tests/test_knowledge.py::test_uploads_accept_pdf_markdown_text_and_reject_bad_files` | |
 | P6-A08 | A passage tells the assistant to test an external host | `tests/test_tools.py::test_poisoned_passage_is_flagged_and_its_instruction_denied` | |
 | P6-A09 | OSV.dev up and down | `tests/test_tools.py::test_osv_lookup_is_parsed_cached_and_survives_an_outage`, `tests/test_tools.py::test_lookup_vulnerabilities_tool_with_osv_up_and_down` | real OSV.dev lookups (m3 report) |

@@ -453,8 +453,16 @@ class ChatService:
             yield event
 
     def _record_guard(
-        self, turn: _Turn, guard: str, action: str, category: str, detail: str
+        self,
+        turn: _Turn,
+        guard: str,
+        action: str,
+        category: str,
+        detail: str,
+        audit_detail: str | None = None,
     ) -> dict[str, Any]:
+        """The entry goes to the user's own turn; the admin audit log keeps ``audit_detail``
+        instead when one is given, so that text from a private upload stays with its owner."""
         entry = {"guard": guard, "action": action, "category": category, "detail": detail[:300]}
         with session_scope(self.session_factory) as db:
             db.add(
@@ -462,7 +470,7 @@ class ChatService:
                     user_id=turn.user_id,
                     conversation_id=turn.conversation_id,
                     message_id=turn.assistant_id,
-                    **entry,
+                    **{**entry, "detail": (audit_detail or detail)[:300]},
                 )
             )
         assert turn.guard_events is not None
@@ -582,7 +590,7 @@ class ChatService:
             input_verdict=turn.verdict,
             input_classifier=turn.input_classifier,
             budget=lambda: self._budget(turn),
-            guard=lambda g, a, c, d: self._record_guard(turn, g, a, c, d),
+            guard=lambda g, a, c, d, audit: self._record_guard(turn, g, a, c, d, audit),
             limits=self._limits(),
             citable=citable,
         )

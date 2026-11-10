@@ -167,8 +167,9 @@ An administrator cannot approve a call that the requesting user is meant to deci
 ## Audit
 
 The Admin page (Audit) lists every Gateway decision (tool, user, decision, reason, argument
-digest, redacted arguments, duration) and every Guard event. Audit records outlive deleted
-conversations and accounts.
+digest, redacted arguments, duration) and every Guard event. Guard event snippets come from
+redacted text, and a flagged passage from a user's private upload is listed without its name
+or text. Audit records outlive deleted conversations and accounts.
 
 ## Settings
 
