@@ -81,7 +81,9 @@ page: paste or choose a requirements.txt, uv.lock, poetry.lock, package-lock.jso
 pyproject.toml or package.json, then **Preview**. Rampart reads the names and versions without
 a model and does not keep the file. The preview shows what it read, which packages have no exact
 version (those cannot be checked for vulnerabilities, so prefer a lock file), and the lines it
-skipped, such as `-r` includes or packages installed from a URL. **Add to profile** saves at
+skipped, such as `-r` includes or packages installed from a URL. Files of other tools (yarn.lock,
+pnpm-lock.yaml, Pipfile.lock, Cargo.lock, Gemfile.lock, go.sum and similar) are refused with the
+tool's name rather than misread; enter those packages by hand. **Add to profile** saves at
 once: packages already in the profile take the file's versions, new ones are added, nothing is
 removed, unless you tick **Replace all packages**. A profile holds up to 1000 packages; with
 more than 30 the assistant sees counts rather than the list, and checks them with
