@@ -41,6 +41,8 @@ MAX_NAME_CHARS = 214
 MAX_VERSION_CHARS = 64
 MAX_SKIPPED = 50
 
+# One whitespace character before "--": "\s+--" retried the whole run of spaces from each of them.
+_LINE_OPTION = re.compile(r"\s--")
 _EXACT_NPM = re.compile(r"^[=v]?(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?)$")
 _NPM_NON_REGISTRY = ("file:", "link:", "workspace:", "git", "http:", "https:", "github:", "npm:")
 
@@ -254,7 +256,9 @@ def _requirements(content: str, result: ParseResult) -> None:
         if line.startswith(("git+", "http:", "https:", "file:", "./", "../", "/")):
             result.skip(line, "installed from a URL or path, not from PyPI")
             continue
-        line = re.split(r"\s+--", line, maxsplit=1)[0].strip()  # per-line options such as --hash
+        option = _LINE_OPTION.search(line)  # per-line options such as --hash
+        if option is not None:
+            line = line[: option.start()].strip()
         _requirement(result, line)
 
 

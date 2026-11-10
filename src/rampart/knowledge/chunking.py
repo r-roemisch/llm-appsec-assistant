@@ -19,7 +19,9 @@ from rampart.knowledge.text import clean_text, estimate_tokens, word_count
 MAX_WORDS = 280
 OVERLAP_WORDS = 40
 
-_HEADING = re.compile(r"^(#{1,6})[ \t]+(.+?)[ \t]*#*[ \t]*$")
+# The heading text is cut from the rest of the line in code (_heading_text): a lazy group followed
+# by optional runs, as in "(.+?)[ \t]*#*[ \t]*$", backtracks cubically on a long run of spaces.
+_HEADING = re.compile(r"^(#{1,6})[ \t]+(.*)$")
 _FENCE = re.compile(r"^\s*(```|~~~)")
 _PARAGRAPH_BREAK = re.compile(r"\n\s*\n")
 _HYPHEN_BREAK = re.compile(r"(\w)-\n(\w)")
@@ -33,8 +35,19 @@ class Chunk:
     token_count: int
 
 
+def _heading_text(rest: str) -> str:
+    """A heading line after its "#"s, without an ATX closing sequence ("## Title ##")."""
+    core = rest.rstrip(" \t")
+    return core.rstrip("#").rstrip(" \t") or core[:1]  # "# ##" keeps one "#", as it always did
+
+
+# [label](link) -> label. Neither part may hold "[", so each attempt stops at the next one: with
+# "[^\]]+" a heading made of "[" characters made every attempt scan to the end of the line.
+_LINK = re.compile(r"\[([^\[\]]+)\]\([^)\[]*\)")
+
+
 def _clean_heading(raw: str) -> str:
-    text = re.sub(r"\[([^\]]+)\]\([^)]*\)", r"\1", raw)  # [label](link) -> label
+    text = _LINK.sub(r"\1", raw)
     text = text.replace("**", "").replace("__", "").replace("`", "")
     return " ".join(text.split())
 
@@ -107,7 +120,7 @@ def chunk_markdown(
         if match is None:
             lines.append(line)
             continue
-        level, title = len(match.group(1)), _clean_heading(match.group(2))
+        level, title = len(match.group(1)), _clean_heading(_heading_text(match.group(2)))
         if level > split_level:
             lines.append(title)  # a deeper heading stays in the text as its own line
             continue

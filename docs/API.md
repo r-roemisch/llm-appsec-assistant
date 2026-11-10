@@ -6,7 +6,7 @@ Version: milestone M6 (2026-11-09); additions are marked **(M2)** to **(M6)**. E
 
 - JSON request and response bodies. Timestamps are ISO 8601 strings in UTC (`2026-11-06T10:15:30Z`). Money is a JSON number in US dollars (`0.000123`).
 - Errors use FastAPI's shape `{"detail": "..."}` (or a list for validation errors, status 422).
-- Status codes: `401` no valid session; `403` wrong role or missing/invalid CSRF token; `404` not found, which is also returned for another user's Conversation so that existence is not leaked; `409` conflict (for example a Conversation that is already streaming); `422` validation.
+- Status codes: `401` no valid session; `403` wrong role or missing/invalid CSRF token; `404` not found, which is also returned for another user's Conversation so that existence is not leaked; `409` conflict (for example a Conversation that is already streaming); `413` a request body over its limit, refused before it is read (1 MB, `RAMPART_MAX_REQUEST_BYTES`; the Dependency File routes allow 21 MB and uploads have their own check); `422` validation.
 - Authentication is a session cookie named `rampart_session`: `HttpOnly`, `SameSite=Lax`, `Secure` when the request is HTTPS, `Path=/`. The frontend never reads it.
 - CSRF: every state-changing request (`POST`, `PUT`, `PATCH`, `DELETE`) except `POST /api/auth/login` must send the header `X-CSRF-Token` with the token returned by `/api/auth/login` or `/api/auth/me`. A missing or wrong token gives `403`.
 - Roles are `user` and `admin`. Admin routes live under `/api/admin/`; a `user` calling them gets `403`. Role checks are enforced in the backend services, not only by routing.

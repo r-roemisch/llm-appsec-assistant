@@ -40,6 +40,9 @@ class Settings(BaseSettings):
     # client could pick its own address and escape the per-client limit.
     trust_proxy_headers: bool = False
     max_message_chars: int = 32_000
+    # The largest request body, read before anything else; uploads and Dependency Files have
+    # their own, larger limits (app.py).
+    max_request_bytes: int = Field(default=1024 * 1024, ge=64 * 1024)
     frontend_dist: Path | None = None
     # Ollama's default context (4096 tokens) is smaller than a retrieval prompt, and Ollama cuts
     # the start of a prompt that does not fit, which is where the system prompt sits.

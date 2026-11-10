@@ -132,6 +132,7 @@ Secrets and provider settings live in `.env` (never committed); see `.env.exampl
 | `RAMPART_HOST`, `RAMPART_PORT` | Bind address for `rampart serve` |
 | `RAMPART_COOKIE_SECURE` | Set `true` behind HTTPS |
 | `RAMPART_MAX_UPLOAD_BYTES`, `RAMPART_MAX_UPLOADS_PER_USER` | Upload limits, default 5 MB and 50 per user |
+| `RAMPART_MAX_REQUEST_BYTES` | Largest request body, refused with 413 before it is read; default 1 MB (Dependency Files and uploads have their own limits) |
 | `RAMPART_RETRIEVAL_K`, `RAMPART_MAX_REWRITES` | Passages per search (6) and query rewrites per turn (2) |
 | `RAMPART_OLLAMA_NUM_CTX`, `RAMPART_OLLAMA_THINKING` | Context window of local models (16384) and whether local answers think (`false`) |
 | `RAMPART_PLUGINS_CATALOG` | Plugin catalog file, default `plugins/catalog.yaml` |

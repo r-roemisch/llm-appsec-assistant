@@ -220,7 +220,7 @@ INJECTION_RULES: tuple[Rule, ...] = (
         "fake_role_tag",
         2,
         re.compile(
-            r"(?m)^\s*(?:system|assistant|developer)\s*:|<\|?(?:system|im_start|im_end|"
+            r"(?m)^[^\S\n]*+(?:system|assistant|developer)\s*+:|<\|?(?:system|im_start|im_end|"
             r"endoftext)\|?>|\[/?(?:INST|SYS)\]|<</?SYS>>|</?system>",
             _I,
         ),
@@ -334,16 +334,23 @@ ANALYSIS_CUES = re.compile(
     _I,
 )
 
+# An imperative at the start of a line or after sentence punctuation. Written so that each run of
+# whitespace is scanned once: "(?:^|[.!?:;]\s+|\n)\s*" split a run between two quantifiers and
+# restarted at every newline of a run, which made one message of blank lines cost seconds.
 DIRECT_IMPERATIVE = re.compile(
-    r"(?:^|[.!?:;]\s+|\n)\s*(?:now\s+|please\s+|ok(?:ay)?,?\s+|then\s+|and\s+)?"
+    r"(?:^[^\S\n]*+|[.!?:;]\s++)(?:now\s++|please\s++|ok(?:ay)?,?\s++|then\s++|and\s++)?"
     r"(?:ignore|disregard|forget|override|bypass|reveal|print|show me|output|repeat|dump|"
     r"tell me your|give me your|send|forward|upload|email|append|post|exfiltrate|call|run|invoke|"
     r"use your tools?|act as|pretend|you are now|from now on|do it|do this|enter|switch to|"
     r"enable)\b",
-    _I,
+    _I | re.MULTILINE,  # "^" is every line start, which replaces the old "\n" alternative
 )
 
-_ADDRESSES = re.compile(r"https?://\S+|\b[\w.+-]+@[\w-]+(?:\.[\w-]+)+|\b[\w-]+(?:\.[\w-]+)+\b")
+# Addresses and domains start where their run of characters starts (the lookbehinds): starting at
+# every word boundary inside "a-a-a-..." rescanned the run each time.
+_ADDRESSES = re.compile(
+    r"https?://\S+|(?<![\w.+-])[\w.+-]+@[\w-]+(?:\.[\w-]+)+|(?<![\w-])[\w-]+(?:\.[\w-]+)+\b"
+)
 
 
 def asks_about(text: str) -> bool:

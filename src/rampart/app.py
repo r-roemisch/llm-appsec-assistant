@@ -13,6 +13,7 @@ from langgraph.checkpoint.base import BaseCheckpointSaver
 from rampart import __version__
 from rampart.admin import router as admin_routes
 from rampart.auth import router as auth_routes
+from rampart.body_limit import MIB, BodyLimit
 from rampart.catalog import router as catalog_routes
 from rampart.catalog.catalog import Catalog
 from rampart.catalog.providers import LiveProbe, ProviderProbe
@@ -29,6 +30,7 @@ from rampart.feedback import router as feedback_routes
 from rampart.gateway.gateway import Gateway
 from rampart.knowledge import router as knowledge_routes
 from rampart.knowledge.embeddings import EmbedderFactory, ProviderEmbedderFactory
+from rampart.knowledge.router import MULTIPART_OVERHEAD
 from rampart.knowledge.service import KnowledgeService
 from rampart.knowledge.vectors import ChromaVectorStore, VectorStore
 from rampart.plugins import router as plugin_routes
@@ -36,7 +38,7 @@ from rampart.plugins.connection import ClientFactory, stdio_client_factory
 from rampart.plugins.service import PluginService
 from rampart.plugins.tools import PluginToolSource
 from rampart.profile import router as profile_routes
-from rampart.schemas import HealthOut
+from rampart.schemas import MAX_DEPENDENCY_FILE_CHARS, HealthOut
 from rampart.targets import router as target_routes
 from rampart.tools import router as tool_routes
 from rampart.tools.builtin import build_registry
@@ -156,6 +158,17 @@ def create_app(
     app.state.plugins = plugins
     app.state.eval = evaluation
     app.state.eval_launcher = SubprocessLauncher(settings, session_factory)
+
+    def body_limit(path: str) -> int:
+        if path == "/api/knowledge/uploads":
+            # The route refuses an oversized upload itself, with a clearer message, before it
+            # reads the body; this limit only backs it up.
+            return settings.max_upload_bytes + MULTIPART_OVERHEAD + MIB
+        if path.startswith("/api/profile/dependency-file/"):
+            return 4 * MAX_DEPENDENCY_FILE_CHARS + MIB  # JSON of up to 5 million characters
+        return settings.max_request_bytes
+
+    app.add_middleware(BodyLimit, limit_for=body_limit)
 
     @app.exception_handler(RampartError)
     async def _domain_error(_request: Request, exc: RampartError) -> JSONResponse:

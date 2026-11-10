@@ -365,11 +365,14 @@ class ProfileIn(BaseModel):
     target_ids: list[str] = Field(default_factory=list, max_length=20)
 
 
+MAX_DEPENDENCY_FILE_CHARS = 5_000_000
+
+
 class DependencyFileIn(BaseModel):
     """(M7) A Dependency File to read; it is parsed in memory and never stored."""
 
     model_config = ConfigDict(extra="forbid")
-    content: str = Field(min_length=1, max_length=5_000_000)
+    content: str = Field(min_length=1, max_length=MAX_DEPENDENCY_FILE_CHARS)
     filename: str | None = Field(default=None, max_length=255)
     format: (
         Literal[

@@ -105,7 +105,9 @@ MAX_GRADE_PASSAGE_CHARS = 1200
 MAX_QUERY_CHARS = 300
 
 _CITATION = re.compile(r"\[(\d{1,2}(?:\s*,\s*\d{1,2})*)\]")
-_FENCE = re.compile(r"^```(?:json)?\s*|\s*```$", re.MULTILINE)
+# The closing fence and the whitespace before it are matched from the start of that whitespace
+# only ((?<!\s)); from every position inside a long run the scan was quadratic.
+_FENCE = re.compile(r"^```(?:json)?\s*|(?<!\s)\s*```$", re.MULTILINE)
 _ATTR_UNSAFE = re.compile(r"[\"<>\x00-\x1f\x7f]")
 
 

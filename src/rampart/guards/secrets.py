@@ -59,7 +59,8 @@ PATTERNS: tuple[SecretPattern, ...] = (
     ),
     SecretPattern(
         "url_credentials",
-        re.compile(r"\b[a-z][a-z0-9+.\-]*://[^\s:/@]+:" + _NOT_A_VALUE + r"([^\s@/]{3,})@"),
+        # The scheme is bounded: unbounded, every word boundary in "a.a.a..." rescanned the rest.
+        re.compile(r"\b[a-z][a-z0-9+.\-]{0,63}://[^\s:/@]+:" + _NOT_A_VALUE + r"([^\s@/]{3,})@"),
         group=1,
     ),
     SecretPattern(
