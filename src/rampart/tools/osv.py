@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import re
+from collections.abc import Mapping, Sequence
 from datetime import timedelta
 from typing import Any
 
@@ -55,20 +56,79 @@ def fixed_versions(vuln: dict[str, Any], package: str) -> list[str]:
     return fixed
 
 
+Records = Mapping[str, dict[str, Any] | None]
+
+
+def alias_groups(ids: Sequence[str], records: Records) -> list[list[str]]:
+    """The ids that name one vulnerability, grouped. OSV.dev lists most PyPI vulnerabilities
+    twice, as a GitHub advisory (GHSA) and as a PyPA advisory (PYSEC), each naming the other or
+    the same CVE among its aliases; counted separately they would double the total. Groups keep
+    the order the ids came in; the first id of a group is the one to show: one whose record has
+    a severity label, else a GitHub advisory, else the first."""
+    parent: dict[str, str] = {}
+
+    def root(key: str) -> str:
+        parent.setdefault(key, key)
+        while parent[key] != key:
+            parent[key] = parent[parent[key]]
+            key = parent[key]
+        return key
+
+    unique = list(dict.fromkeys(ids))
+    for vuln_id in unique:
+        root(vuln_id)
+        for alias in (records.get(vuln_id) or {}).get("aliases") or []:
+            a, b = root(vuln_id), root(str(alias))
+            if a != b:
+                parent[b] = a
+    groups: dict[str, list[str]] = {}
+    for vuln_id in unique:
+        groups.setdefault(root(vuln_id), []).append(vuln_id)
+
+    def shown_first(vuln_id: str) -> tuple[int, int]:
+        record = records.get(vuln_id) or {}
+        labelled = (record.get("database_specific") or {}).get("severity")
+        has_label = isinstance(labelled, str) and bool(labelled)
+        return (0 if has_label else 1, 0 if vuln_id.startswith("GHSA-") else 1)
+
+    return [sorted(group, key=shown_first) for group in groups.values()]  # sorted() is stable
+
+
+def merged_details(group: Sequence[str], records: Records, package: str) -> dict[str, Any]:
+    """What one alias group says: the most severe label any of its records gives (else a CVSS
+    vector), the fixed versions of all of them, and every other name it goes by, CVEs first."""
+    found = [r for r in (records.get(i) for i in group) if r]
+    severities = [s for s in (severity_of(r) for r in found) if s]
+    labels = [s for s in severities if s in SEVERITY_RANK]
+    names = [*group[1:], *(str(a) for r in found for a in r.get("aliases") or [])]
+    aliases = [a for a in dict.fromkeys(names) if a != group[0]]
+    most_severe = min(labels, key=SEVERITY_RANK.__getitem__) if labels else None
+    return {
+        "severity": most_severe or next(iter(severities), None),
+        "fixed": list(dict.fromkeys(v for r in found for v in fixed_versions(r, package))),
+        "aliases": sorted(aliases, key=lambda a: not a.startswith("CVE-")),
+        "record": records.get(group[0]) or (found[0] if found else None),
+    }
+
+
 def summarise(payload: dict[str, Any], package: str) -> list[dict[str, Any]]:
+    """One entry per vulnerability, however many advisory ids OSV.dev lists it under."""
+    records: dict[str, dict[str, Any] | None] = {
+        str(v["id"]): v for v in payload.get("vulns") or [] if isinstance(v, dict) and v.get("id")
+    }
     vulns: list[dict[str, Any]] = []
-    for vuln in payload.get("vulns") or []:
-        if not isinstance(vuln, dict) or not vuln.get("id"):
-            continue
+    for group in alias_groups(list(records), records):
+        merged = merged_details(group, records, package)
+        vuln = merged["record"] or {}
         summary = vuln.get("summary") or (vuln.get("details") or "").split("\n")[0]
         vulns.append(
             {
-                "id": str(vuln["id"]),
-                "aliases": [str(a) for a in vuln.get("aliases") or []][:5],
+                "id": group[0],
+                "aliases": merged["aliases"][:5],
                 "summary": str(summary)[:240],
-                "severity": severity_of(vuln),
+                "severity": merged["severity"],
                 "published": vuln.get("published"),
-                "fixed_versions": fixed_versions(vuln, package)[:5],
+                "fixed_versions": merged["fixed"][:5],
                 "references": [
                     str(r.get("url"))
                     for r in vuln.get("references") or []
@@ -266,12 +326,13 @@ class OsvClient:
                     "fetched_at": entry[1].isoformat() + "Z",
                 }
             raise
+        vulns = summarise(payload, package)
         result = {
             "ecosystem": ecosystem,
             "package": package,
             "version": version,
-            "vulnerabilities": summarise(payload, package)[:MAX_VULNS],
-            "total": len(payload.get("vulns") or []),
+            "vulnerabilities": vulns[:MAX_VULNS],
+            "total": len(vulns),  # distinct vulnerabilities, not advisory ids
             "source": "OSV.dev",
         }
         with session_scope(self.session_factory) as db:

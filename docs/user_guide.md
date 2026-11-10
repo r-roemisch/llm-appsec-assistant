@@ -154,7 +154,9 @@ tool, its arguments, what Rampart's Gateway decided, and the result.
 - **Check all your packages** (`check_dependencies`): ask "check my dependencies" and Rampart
   sends every package of your Project Profile with an exact version to OSV.dev in one batch.
   The answer lists the known vulnerabilities, most severe first, and the packages it could not
-  check because they have no exact version. A report includes the full table.
+  check because they have no exact version. OSV.dev often lists one vulnerability under several
+  advisory ids (a GitHub advisory, a PyPA advisory, a CVE); Rampart counts it once and shows the
+  other ids beside it. A report includes the full table.
 - **Search the Knowledge Base** (`search_knowledge`): Rampart may search again during an
   answer; those passages are cited like the others.
 - **Report** (`generate_report`): ask for a report and Rampart stores one; see Reports below.

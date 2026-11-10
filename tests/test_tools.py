@@ -265,3 +265,33 @@ def test_kb_fixture_ingest_includes_the_poisoned_document(app):
     summary = ingest_offline(app)
     titles = [doc.title for doc, _ in summary.stored]
     assert "Fixture: Vendor integration notes (poisoned)" in titles
+
+
+def test_one_vulnerability_listed_under_two_advisory_ids_counts_once():
+    """OSV.dev lists most PyPI vulnerabilities as a GitHub advisory and a PyPA advisory that name
+    each other or the same CVE; a lookup shows each vulnerability once, with its other names."""
+    from rampart.tools.osv import summarise
+
+    payload = {"vulns": [
+        {"id": "PYSEC-2023-74", "aliases": ["CVE-2023-32681", "GHSA-j8r2-6x86-q33q"],
+         "details": "Requests leaks Proxy-Authorization headers.",
+         "affected": [{"package": {"name": "requests"}, "ranges": [{"events": [{"fixed": "2.31.0"}]}]}]},
+        {"id": "GHSA-j8r2-6x86-q33q", "aliases": ["CVE-2023-32681"],
+         "summary": "Unintended leak of Proxy-Authorization header",
+         "database_specific": {"severity": "MODERATE"},
+         "affected": [{"package": {"name": "requests"}, "ranges": [{"events": [{"fixed": "2.31.0"}]}]}]},
+        {"id": "PYSEC-2018-28", "aliases": ["CVE-2018-18074"],  # shares a CVE only, no GHSA here
+         "details": "Requests sends HTTP Authorization headers on redirect.",
+         "affected": [{"package": {"name": "requests"}, "ranges": [{"events": [{"fixed": "2.20.0"}]}]}]},
+        {"id": "GHSA-x84v-xcm2-53pg", "aliases": ["CVE-2018-18074"],
+         "summary": "Insufficiently Protected Credentials in Requests",
+         "database_specific": {"severity": "HIGH"},
+         "affected": [{"package": {"name": "requests"}, "ranges": [{"events": [{"fixed": "2.20"}]}]}]},
+    ]}
+    vulns = summarise(payload, "requests")
+    assert [v["id"] for v in vulns] == ["GHSA-x84v-xcm2-53pg", "GHSA-j8r2-6x86-q33q"]  # HIGH first
+    high, moderate = vulns
+    assert high["severity"] == "HIGH" and high["aliases"] == ["CVE-2018-18074", "PYSEC-2018-28"]
+    assert high["fixed_versions"] == ["2.20", "2.20.0"]  # every advisory's fixed versions
+    assert moderate["summary"] == "Unintended leak of Proxy-Authorization header"
+    assert moderate["aliases"][0] == "CVE-2023-32681" and "PYSEC-2023-74" in moderate["aliases"]

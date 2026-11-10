@@ -135,9 +135,12 @@ def build_report(
                 out += ["", "| Package | Version | ID | Severity | Summary | Fixed in |"]
                 out.append("|---|---|---|---|---|---|")
                 for row in rows:
+                    names = _cell(row.get("id"))
+                    if row.get("aliases"):
+                        names += f" ({_cell(', '.join(row['aliases']))})"
                     out.append(
                         f"| {_cell(row.get('ecosystem'))} {_cell(row.get('package'))} "
-                        f"| {_cell(row.get('version'))} | {_cell(row.get('id'))} "
+                        f"| {_cell(row.get('version'))} | {names} "
                         f"| {_cell(row.get('severity') or 'unrated')} "
                         f"| {_cell(row.get('summary'))} "
                         f"| {_cell(', '.join(row.get('fixed') or []))} |"
@@ -159,8 +162,11 @@ def build_report(
                 out.append("|---|---|---|---|")
                 for vuln in vulns:
                     fixed = ", ".join(vuln.get("fixed_versions") or [])
+                    names = _cell(vuln.get("id"))
+                    if vuln.get("aliases"):
+                        names += f" ({_cell(', '.join(vuln['aliases']))})"
                     out.append(
-                        f"| {_cell(vuln.get('id'))} | {_cell(vuln.get('severity'))} "
+                        f"| {names} | {_cell(vuln.get('severity'))} "
                         f"| {_cell(vuln.get('summary'))} | {_cell(fixed)} |"
                     )
             out.append("")

@@ -302,6 +302,41 @@ def test_check_dependencies_checks_the_profile_in_one_batch(app, scripted):
     assert "Dependency check of the Project Profile" in markdown and "GHSA-p6mc-m468-83gw" in markdown
 
 
+def test_check_dependencies_counts_a_vulnerability_once_whatever_its_advisory_ids(app, scripted):
+    """A package whose one vulnerability OSV.dev lists as GHSA and PYSEC gets one row, named by
+    the GitHub advisory, with the other ids as aliases."""
+    make_user(app, "alice")
+    alice = Api(app, "alice")
+    alice.put("/api/profile", json={"stack": "", "packages": [
+        {"ecosystem": "PyPI", "name": "pyyaml", "version": "5.3.1"},
+    ]})
+    advisories = {
+        "GHSA-8q59-q68h-6hv4": {"id": "GHSA-8q59-q68h-6hv4", "aliases": ["CVE-2020-14343"],
+                                "summary": "Improper Input Validation in PyYAML",
+                                "database_specific": {"severity": "CRITICAL"},
+                                "affected": [{"package": {"name": "PyYAML"}, "ranges": [{"events": [{"fixed": "5.4"}]}]}]},
+        "PYSEC-2021-142": {"id": "PYSEC-2021-142", "aliases": ["CVE-2020-14343", "GHSA-8q59-q68h-6hv4"],
+                           "details": "A vulnerability in PyYAML's full_load.",
+                           "affected": [{"package": {"name": "pyyaml"}, "ranges": [{"events": [{"fixed": "5.4"}]}]}]},
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/v1/querybatch":
+            return httpx.Response(200, json={"results": [{"vulns": [{"id": i} for i in advisories]}]})
+        return httpx.Response(200, json=advisories[request.url.path.rsplit("/", 1)[-1]])
+
+    app.state.osv.transport = httpx.MockTransport(handler)
+    scripted.replies = [tool_call("check_dependencies", {}, "d1"), "One critical issue."]
+    events = alice.send(alice.new_conversation()["id"], "Check my dependencies")
+    assert by_name(events, "tool_result")[0]["summary"] == "1 known vulnerabilities in 1 of 1 checked packages"
+    stored = records(app, tool="check_dependencies")[-1]["result"]
+    assert stored["vulnerabilities"] == 1 and stored["by_severity"] == {"CRITICAL": 1}
+    row = stored["rows"][0]
+    assert row["id"] == "GHSA-8q59-q68h-6hv4" and row["aliases"] == ["CVE-2020-14343", "PYSEC-2021-142"]
+    model_text = [m for m in scripted.calls[-1] if type(m).__name__ == "ToolMessage"][-1].content
+    assert "GHSA-8q59-q68h-6hv4 (CVE-2020-14343)" in model_text and "PYSEC-2021-142" not in model_text
+
+
 def test_check_dependencies_without_versions_or_osv(app, scripted):
     make_user(app, "alice")
     alice = Api(app, "alice")

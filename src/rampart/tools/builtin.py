@@ -16,8 +16,8 @@ from rampart.tools.osv import (
     SEVERITY_RANK,
     OsvClient,
     OsvUnavailable,
-    fixed_versions,
-    severity_of,
+    alias_groups,
+    merged_details,
 )
 from rampart.tools.prompt_analysis import analyze
 from rampart.tools.registry import ToolContext, ToolManifest, ToolOutput, ToolRegistry
@@ -203,6 +203,12 @@ def _json(data: dict[str, Any]) -> str:
     return json.dumps(data, ensure_ascii=False, indent=1)
 
 
+def _id_cell(row: dict[str, Any]) -> str:
+    """A vulnerability's id with its CVE names, which users search for."""
+    cves = [a for a in row.get("aliases") or [] if a.startswith("CVE-")]
+    return f"{row['id']} ({', '.join(cves)})" if cves else str(row["id"])
+
+
 def build_registry(settings: Settings, osv: OsvClient) -> ToolRegistry:
     registry = ToolRegistry()
 
@@ -338,8 +344,9 @@ def build_registry(settings: Settings, osv: OsvClient) -> ToolRegistry:
         records = await osv.vulnerabilities(wanted[:MAX_DETAILS])
         rows: list[dict[str, Any]] = []
         for package, found in zip(pinned, ids, strict=True):
-            for vuln_id in found:
-                record = records.get(vuln_id)
+            for group in alias_groups(found, records):  # one row per vulnerability, not per id
+                merged = merged_details(group, records, package.name)
+                record = merged["record"]
                 summary = ""
                 if record:
                     summary = str(
@@ -350,10 +357,11 @@ def build_registry(settings: Settings, osv: OsvClient) -> ToolRegistry:
                         "ecosystem": package.ecosystem,
                         "package": package.name,
                         "version": package.version,
-                        "id": vuln_id,
-                        "severity": severity_of(record) if record else None,
+                        "id": group[0],
+                        "aliases": merged["aliases"][:5],
+                        "severity": merged["severity"],
                         "summary": summary[:100],
-                        "fixed": fixed_versions(record, package.name)[:3] if record else [],
+                        "fixed": merged["fixed"][:3],
                     }
                 )
         rows.sort(key=lambda r: (SEVERITY_RANK.get(str(r["severity"]), 4), r["package"], r["id"]))
@@ -388,7 +396,7 @@ def build_registry(settings: Settings, osv: OsvClient) -> ToolRegistry:
             lines.append("|---|---|---|---|---|---|")
             for r in rows[:MAX_MODEL_ROWS]:
                 lines.append(
-                    f"| {r['ecosystem']} {r['package']} | {r['version']} | {r['id']} | "
+                    f"| {r['ecosystem']} {r['package']} | {r['version']} | {_id_cell(r)} | "
                     f"{r['severity'] or 'unrated'} | {r['summary'].replace('|', '/')} | "
                     f"{', '.join(r['fixed'])} |"
                 )
