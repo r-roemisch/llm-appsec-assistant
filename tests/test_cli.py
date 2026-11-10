@@ -139,3 +139,15 @@ def test_the_server_prunes_traces_at_start_only_when_configured(tmp_path):
     assert old.exists()  # unset: nothing is deleted
     start(trace_retention_days=7)
     assert not old.exists()
+
+
+def test_a_command_outside_a_clone_stops_instead_of_creating_an_empty_database(tmp_path, monkeypatch):
+    """The default paths are relative to the working directory; elsewhere a command says where to
+    run it rather than starting a second, empty database."""
+    monkeypatch.chdir(tmp_path)
+    for name in ("RAMPART_MODELS_FILE", "RAMPART_DATA_DIR"):
+        monkeypatch.delenv(name, raising=False)
+    result = CliRunner().invoke(app, ["user", "list"])
+    assert result.exit_code == 2
+    assert "Run rampart from the folder of your Rampart clone" in result.output
+    assert not (tmp_path / "data").exists()

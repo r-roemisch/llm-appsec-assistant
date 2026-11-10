@@ -69,6 +69,12 @@ does not:
 
 ## Quick start
 
+Rampart runs from a clone of this repository. It is not published as a package, and a
+`pip install` of it would leave out the model catalog, the interface, the injection suite, the
+Plugin catalog and the guides. Run every `rampart` command from the clone's folder: `data/`,
+`models.yaml` and `.env` are found there, and elsewhere a command stops and says so instead of
+starting a second, empty database. It is developed and tested on Linux (including WSL 2).
+
 ```bash
 cp .env.example .env            # put your OPENROUTER_API_KEY in .env
 uv sync                         # backend dependencies into .venv

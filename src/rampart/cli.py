@@ -31,7 +31,21 @@ app.add_typer(traces_app, name="traces")
 
 
 def _settings() -> Settings:
-    return load_settings()
+    """Settings for a command, which runs from the folder of a Rampart clone.
+
+    The default paths (data/, models.yaml, .env) are relative to the working directory, so a
+    command started anywhere else would quietly create an empty database there and miss the keys.
+    It stops instead and says where to run it."""
+    settings = load_settings()
+    if not settings.models_file.is_file():
+        typer.echo(
+            f"No model catalog at {settings.models_file.resolve()}. Run rampart from the folder of "
+            "your Rampart clone (the one with models.yaml and .env), or set RAMPART_MODELS_FILE "
+            "and RAMPART_DATA_DIR.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    return settings
 
 
 def _open(settings: Settings):
