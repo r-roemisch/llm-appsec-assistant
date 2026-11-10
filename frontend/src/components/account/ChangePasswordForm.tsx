@@ -1,4 +1,4 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
@@ -6,8 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { changePassword, errorMessage } from "@/lib/api";
+import { queryKeys } from "@/lib/query-keys";
 
 export function ChangePasswordForm() {
+  const queryClient = useQueryClient();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
@@ -15,7 +17,9 @@ export function ChangePasswordForm() {
 
   const change = useMutation({
     mutationFn: () => changePassword(currentPassword, newPassword),
-    onSuccess: () => {
+    onSuccess: (renewed) => {
+      // The server started a new session with a new CSRF token; keep the cached one in step.
+      queryClient.setQueryData(queryKeys.session, renewed);
       toast.success("Password changed");
       setCurrentPassword("");
       setNewPassword("");

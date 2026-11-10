@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
+import { toast } from "sonner";
 
 import { RoleBadge } from "@/components/common/ModelBadges";
 import {
@@ -24,7 +25,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useCurrentUser } from "@/hooks/useSession";
 import { useTheme } from "@/hooks/useTheme";
-import { logout } from "@/lib/api";
+import { errorMessage, logout } from "@/lib/api";
 import { queryKeys } from "@/lib/query-keys";
 import type { ThemePreference } from "@/lib/theme";
 
@@ -44,9 +45,12 @@ export function UserMenu({ onNavigate }: { onNavigate?: () => void }) {
   async function signOut() {
     setSigningOut(true);
     try {
-      await logout();
-    } catch {
-      // The cookie is gone or was never valid; either way we are signed out.
+      await logout(); // resolves when the server ended the session, or had none
+    } catch (error) {
+      // The session is still valid on the server: say so instead of pretending.
+      setSigningOut(false);
+      toast.error(`Could not sign out: ${errorMessage(error)}`);
+      return;
     }
     queryClient.setQueryData(queryKeys.session, null);
     navigate("/login", { replace: true });

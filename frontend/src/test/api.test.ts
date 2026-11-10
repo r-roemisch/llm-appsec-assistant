@@ -574,4 +574,38 @@ describe("api client", () => {
     };
     await expect(iterate()).rejects.toMatchObject({ status: 409, detail: "A turn is already streaming" });
   });
+
+  it("reads the session again after a password change, so later requests carry the new CSRF token", async () => {
+    session.set(aliceSession);
+    const renewed = { ...aliceSession, csrf_token: "csrf-token-after-change" };
+    fetchMock.mockResolvedValueOnce(jsonResponse(204)).mockResolvedValueOnce(jsonResponse(200, renewed));
+
+    await expect(api.changePassword("old-password", "new-password")).resolves.toEqual(renewed);
+    expect(fetchMock.mock.calls.map((call) => String(call[0]))).toEqual(["/api/auth/password", "/api/auth/me"]);
+    expect(new Headers(fetchMock.mock.calls[0][1]?.headers).get("X-CSRF-Token")).toBe("csrf-token-1");
+
+    fetchMock.mockResolvedValueOnce(jsonResponse(204));
+    await api.logout();
+    expect(new Headers(lastCall(fetchMock).init.headers).get("X-CSRF-Token")).toBe("csrf-token-after-change");
+  });
+
+  it("keeps the session when the server refuses to sign out, and drops it when it agrees", async () => {
+    session.set(aliceSession);
+    fetchMock.mockResolvedValueOnce(jsonResponse(403, { detail: "missing or invalid CSRF token" }));
+    await expect(api.logout()).rejects.toMatchObject({ status: 403 });
+    expect(session.csrfToken()).toBe("csrf-token-1"); // still signed in on the server
+
+    fetchMock.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    await expect(api.logout()).rejects.toMatchObject({ status: 0 });
+    expect(session.csrfToken()).toBe("csrf-token-1");
+
+    fetchMock.mockResolvedValueOnce(jsonResponse(401, { detail: "not signed in" }));
+    await expect(api.logout()).resolves.toBeUndefined(); // the session had already ended
+    expect(session.get()).toBeNull();
+
+    session.set(aliceSession);
+    fetchMock.mockResolvedValueOnce(jsonResponse(204));
+    await expect(api.logout()).resolves.toBeUndefined();
+    expect(session.get()).toBeNull();
+  });
 });

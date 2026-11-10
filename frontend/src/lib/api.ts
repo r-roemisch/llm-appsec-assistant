@@ -227,12 +227,18 @@ export async function login(username: string, password: string): Promise<Session
   return result;
 }
 
+/**
+ * Ends the session on the server. Resolves only when it did, or when the server says there was
+ * none (401); any other failure rejects and keeps the session, which is still valid then.
+ */
 export async function logout(): Promise<void> {
   try {
     await request<void>("POST", "/api/auth/logout");
-  } finally {
-    session.clear();
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) return; // already signed out
+    throw error;
   }
+  session.clear();
 }
 
 export async function getMe(): Promise<SessionOut> {
@@ -241,10 +247,15 @@ export async function getMe(): Promise<SessionOut> {
   return result;
 }
 
-export function changePassword(currentPassword: string, newPassword: string): Promise<void> {
-  return request("POST", "/api/auth/password", {
+/**
+ * Changes the password. The server ends every session and starts a new one for this browser, with
+ * a new CSRF token; the session is read again so that later requests carry it.
+ */
+export async function changePassword(currentPassword: string, newPassword: string): Promise<SessionOut> {
+  await request<void>("POST", "/api/auth/password", {
     body: { current_password: currentPassword, new_password: newPassword },
   });
+  return getMe();
 }
 
 // Admin: users
